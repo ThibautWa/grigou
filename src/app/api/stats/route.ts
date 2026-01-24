@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const totalsResult = await pool.query(totalsQuery, params);
     const totals = totalsResult.rows[0];
 
-    // Initialize with real transactions
+    // Initialize with real transactions for the period
     let periodIncome = parseFloat(totals.total_income);
     let periodOutcome = parseFloat(totals.total_outcome);
 
@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
 
     // Calculate cumulative balance (everything from the beginning to endDate)
     let cumulativeBalance = 0;
+    let cumulativeIncome = 0;
+    let cumulativeOutcome = 0;
 
     if (endDate) {
       // Get all real transactions until endDate
@@ -49,7 +51,10 @@ export async function GET(request: NextRequest) {
       `;
       const allTransactionsResult = await pool.query(allTransactionsQuery, [endDate]);
       const allTotals = allTransactionsResult.rows[0];
-      cumulativeBalance = parseFloat(allTotals.total_income) - parseFloat(allTotals.total_outcome);
+
+      cumulativeIncome = parseFloat(allTotals.total_income);
+      cumulativeOutcome = parseFloat(allTotals.total_outcome);
+      cumulativeBalance = cumulativeIncome - cumulativeOutcome;
 
       console.log('Real transactions balance:', cumulativeBalance);
 
@@ -84,15 +89,17 @@ export async function GET(request: NextRequest) {
               allPredictions.forEach((pred: any) => {
                 if (pred.type === 'income') {
                   cumulativeBalance += pred.amount;
+                  cumulativeIncome += pred.amount;
                 } else {
                   cumulativeBalance -= pred.amount;
+                  cumulativeOutcome += pred.amount;
                 }
               });
 
               console.log('Cumulative balance after all predictions:', cumulativeBalance);
             }
 
-            // ✅ NOW fetch predictions for the selected period ONLY (for the cards)
+            // Fetch predictions for the selected period ONLY (for the monthly cards)
             if (startDate) {
               console.log('Fetching period predictions from', startDate, 'to', endDate);
 
@@ -157,9 +164,16 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      totalIncome: periodIncome,      // ✅ Includes predictions for selected period
-      totalOutcome: periodOutcome,    // ✅ Includes predictions for selected period
-      balance: cumulativeBalance,      // ✅ Cumulative balance with all predictions
+      // Monthly totals (for the period)
+      totalIncome: periodIncome,
+      totalOutcome: periodOutcome,
+      balance: periodIncome - periodOutcome,
+
+      // Cumulative totals (from beginning to endDate)
+      cumulativeIncome,
+      cumulativeOutcome,
+      cumulativeBalance,
+
       monthlyData,
     });
   } catch (error) {
