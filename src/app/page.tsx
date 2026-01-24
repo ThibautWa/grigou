@@ -7,6 +7,7 @@ import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import BudgetChart from '@/components/BudgetChart';
 import StatsCard from '@/components/StatsCard';
+import PredictedTransactions from '@/components/PredictedTransactions';
 
 interface Transaction {
   id: number;
@@ -15,6 +16,17 @@ interface Transaction {
   description: string;
   category: string | null;
   date: string;
+}
+
+interface PredictedTransaction {
+  id: string;
+  type: 'income' | 'outcome';
+  amount: number;
+  description: string;
+  category: string | null;
+  date: string;
+  is_predicted: boolean;
+  original_transaction_id: number;
 }
 
 interface Stats {
@@ -27,16 +39,19 @@ interface Stats {
     outcome: number;
     balance: number;
     cumulative: number;
+    predicted_income?: number;
+    predicted_outcome?: number;
   }>;
 }
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [predictions, setPredictions] = useState<PredictedTransaction[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
-    start: format(subMonths(new Date(), 6), 'yyyy-MM-dd'),
-    end: format(addMonths(new Date(), 6), 'yyyy-MM-dd'),
+    start: format(subMonths(new Date(), 0), 'yyyy-MM-dd'),
+    end: format(addMonths(new Date(), 0), 'yyyy-MM-dd'),
   });
 
   const fetchTransactions = async () => {
@@ -54,7 +69,7 @@ export default function Home() {
   const fetchStats = async () => {
     try {
       const response = await fetch(
-        `/api/stats?startDate=${dateRange.start}&endDate=${dateRange.end}`
+        `/api/stats?startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=true`
       );
       const data = await response.json();
       setStats(data);
@@ -63,10 +78,23 @@ export default function Home() {
     }
   };
 
+  const fetchPredictions = async () => {
+    try {
+      const response = await fetch(
+        `/api/predictions?startDate=${dateRange.start}&endDate=${dateRange.end}`
+      );
+      const data = await response.json();
+      console.log('Predictions received:', data);
+      setPredictions(data);
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchTransactions(), fetchStats()]);
+      await Promise.all([fetchTransactions(), fetchStats(), fetchPredictions()]);
       setLoading(false);
     };
     loadData();
@@ -75,11 +103,13 @@ export default function Home() {
   const handleTransactionAdded = () => {
     fetchTransactions();
     fetchStats();
+    fetchPredictions();
   };
 
   const handleTransactionDeleted = () => {
     fetchTransactions();
     fetchStats();
+    fetchPredictions();
   };
 
   const adjustDateRange = (months: number) => {
@@ -87,6 +117,8 @@ export default function Home() {
     const newEnd = format(addMonths(new Date(dateRange.end), months), 'yyyy-MM-dd');
     setDateRange({ start: newStart, end: newEnd });
   };
+
+  // console.log(data);
 
   if (loading) {
     return (
@@ -173,9 +205,19 @@ export default function Home() {
           </div>
         )}
 
+        {/* Predicted Transactions */}
+        {predictions.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+              🔮 Transactions Prédites (Récurrentes)
+            </h2>
+            <PredictedTransactions predictions={predictions} />
+          </div>
+        )}
+
         {/* Transaction Form */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+          <h2 className="text-2xl font-semibent text-gray-800 mb-4">
             Nouvelle Transaction
           </h2>
           <TransactionForm onTransactionAdded={handleTransactionAdded} />

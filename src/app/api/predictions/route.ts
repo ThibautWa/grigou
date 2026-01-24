@@ -44,7 +44,7 @@ function generatePredictions(
 ): any[] {
   const predictions = [];
   let currentDate = new Date(transaction.date);
-  const maxDate = transaction.recurrence_end_date 
+  const maxDate = transaction.recurrence_end_date
     ? new Date(transaction.recurrence_end_date)
     : endDate;
 
@@ -54,7 +54,7 @@ function generatePredictions(
   // Générer les occurrences futures
   while (true) {
     currentDate = getNextOccurrence(currentDate, transaction.recurrence_type);
-    
+
     if (isAfter(currentDate, limitDate)) {
       break;
     }
@@ -70,7 +70,7 @@ function generatePredictions(
       original_transaction_id: transaction.id,
     });
   }
-
+  console.log('Generated predictions:', predictions);
   return predictions;
 }
 
@@ -87,18 +87,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
-    const today = new Date();
 
-    // Récupérer toutes les transactions récurrentes actives
+    // Récupérer la date la plus ancienne des transactions récurrentes
+    const oldestRecurringResult = await pool.query(
+      `SELECT MIN(date) as oldest_date 
+       FROM transactions 
+       WHERE is_recurring = true`
+    );
+    
+    const oldestRecurringDate = oldestRecurringResult.rows[0]?.oldest_date || startDate;
+
+    // Récupérer TOUTES les transactions récurrentes actives
+    // en utilisant la date la plus ancienne comme référence
     const result = await pool.query<RecurringTransaction>(
       `SELECT * FROM transactions 
        WHERE is_recurring = TRUE 
        AND date <= $1
        AND (recurrence_end_date IS NULL OR recurrence_end_date >= $2)
        ORDER BY date ASC`,
-      [endDate, format(today, 'yyyy-MM-dd')]
+      [endDate, oldestRecurringDate]  // ✅ Utilisation de la date la plus ancienne
     );
+
+    console.log('Date range:', startDate, 'to', endDate);
+    console.log('Oldest recurring date:', oldestRecurringDate);
+    console.log('Recurring transactions found:', result.rows.length);
 
     const recurringTransactions = result.rows;
     let allPredictions: any[] = [];
@@ -109,14 +123,16 @@ export async function GET(request: NextRequest) {
       allPredictions = [...allPredictions, ...predictions];
     }
 
-    // Filtrer par la période demandée
+    // Filtrer uniquement par la période demandée
     const filteredPredictions = allPredictions.filter(pred => {
       const predDate = new Date(pred.date);
-      return predDate >= new Date(startDate) && predDate <= endDateObj && predDate >= today;
+      return predDate >= startDateObj && predDate <= endDateObj;
     });
 
     // Trier par date
     filteredPredictions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    console.log('Predictions generated:', filteredPredictions.length);
 
     return NextResponse.json(filteredPredictions);
   } catch (error) {
