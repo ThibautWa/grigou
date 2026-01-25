@@ -1,3 +1,4 @@
+// app/api/predictions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { addDays, addWeeks, addMonths, addYears, isBefore, isAfter, format } from 'date-fns';
@@ -79,6 +80,15 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const walletId = searchParams.get('walletId');
+
+    // Wallet ID est obligatoire
+    if (!walletId) {
+      return NextResponse.json(
+        { error: 'Wallet ID is required' },
+        { status: 400 }
+      );
+    }
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -90,26 +100,29 @@ export async function GET(request: NextRequest) {
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
 
-    // Récupérer la date la plus ancienne des transactions récurrentes
+    // Récupérer la date la plus ancienne des transactions récurrentes pour ce portefeuille
     const oldestRecurringResult = await pool.query(
       `SELECT MIN(date) as oldest_date 
        FROM transactions 
-       WHERE is_recurring = true`
+       WHERE wallet_id = $1 AND is_recurring = true`,
+      [parseInt(walletId)]
     );
-    
+
     const oldestRecurringDate = oldestRecurringResult.rows[0]?.oldest_date || startDate;
 
-    // Récupérer TOUTES les transactions récurrentes actives
+    // Récupérer TOUTES les transactions récurrentes actives pour ce portefeuille
     // en utilisant la date la plus ancienne comme référence
     const result = await pool.query<RecurringTransaction>(
       `SELECT * FROM transactions 
-       WHERE is_recurring = TRUE 
-       AND date <= $1
-       AND (recurrence_end_date IS NULL OR recurrence_end_date >= $2)
+       WHERE wallet_id = $1
+       AND is_recurring = TRUE 
+       AND date <= $2
+       AND (recurrence_end_date IS NULL OR recurrence_end_date >= $3)
        ORDER BY date ASC`,
-      [endDate, oldestRecurringDate]  // ✅ Utilisation de la date la plus ancienne
+      [parseInt(walletId), endDate, oldestRecurringDate]
     );
 
+    console.log('Wallet ID:', walletId);
     console.log('Date range:', startDate, 'to', endDate);
     console.log('Oldest recurring date:', oldestRecurringDate);
     console.log('Recurring transactions found:', result.rows.length);

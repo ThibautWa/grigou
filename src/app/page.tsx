@@ -7,6 +7,9 @@ import TransactionForm from '@/components/TransactionForm';
 import TransactionList from '@/components/TransactionList';
 import StatsCard from '@/components/StatsCard';
 import PredictedTransactions from '@/components/PredictedTransactions';
+import WalletSelector from '@/components/WalletSelector';
+import WalletManager from '@/components/WalletManager';
+import { useWallet } from '@/hooks/useWallet';
 
 interface Transaction {
   id: number;
@@ -49,6 +52,9 @@ interface Stats {
 type ViewMode = 'current' | 'period' | 'prediction';
 
 export default function Home() {
+  const { selectedWalletId, selectWallet, isInitialized } = useWallet();
+  const [showWalletManager, setShowWalletManager] = useState(false);
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [futureTransactions, setFutureTransactions] = useState<Transaction[]>([]);
   const [predictions, setPredictions] = useState<PredictedTransaction[]>([]);
@@ -69,6 +75,8 @@ export default function Home() {
   });
 
   const fetchTransactions = async () => {
+    if (!selectedWalletId) return;
+
     try {
       let start, end;
 
@@ -85,7 +93,7 @@ export default function Home() {
       }
 
       const response = await fetch(
-        `/api/transactions?startDate=${start}&endDate=${end}`
+        `/api/transactions?walletId=${selectedWalletId}&startDate=${start}&endDate=${end}`
       );
       const data = await response.json();
       setTransactions(data);
@@ -95,6 +103,8 @@ export default function Home() {
   };
 
   const fetchFutureTransactions = async () => {
+    if (!selectedWalletId) return;
+
     if (viewMode !== 'prediction') {
       setFutureTransactions([]);
       return;
@@ -105,7 +115,7 @@ export default function Home() {
       const start = format(startOfMonth(targetDateObj), 'yyyy-MM-dd');
 
       const response = await fetch(
-        `/api/transactions?startDate=${start}&endDate=${targetDate}`
+        `/api/transactions?walletId=${selectedWalletId}&startDate=${start}&endDate=${targetDate}`
       );
       const data = await response.json();
 
@@ -120,6 +130,8 @@ export default function Home() {
   };
 
   const fetchStats = async () => {
+    if (!selectedWalletId) return;
+
     try {
       let start, end;
 
@@ -136,7 +148,7 @@ export default function Home() {
       }
 
       const response = await fetch(
-        `/api/stats?startDate=${start}&endDate=${end}&includePredictions=true`
+        `/api/stats?walletId=${selectedWalletId}&startDate=${start}&endDate=${end}&includePredictions=true`
       );
       const data = await response.json();
       setStats(data);
@@ -146,6 +158,8 @@ export default function Home() {
   };
 
   const fetchMonthlyStats = async () => {
+    if (!selectedWalletId) return;
+
     if (viewMode !== 'prediction') {
       setMonthlyStats(null);
       return;
@@ -158,7 +172,7 @@ export default function Home() {
       const end = format(endOfMonth(targetDateObj), 'yyyy-MM-dd');
 
       const response = await fetch(
-        `/api/stats?startDate=${start}&endDate=${end}&includePredictions=true`
+        `/api/stats?walletId=${selectedWalletId}&startDate=${start}&endDate=${end}&includePredictions=true`
       );
       const data = await response.json();
       setMonthlyStats(data);
@@ -168,6 +182,8 @@ export default function Home() {
   };
 
   const fetchPredictions = async () => {
+    if (!selectedWalletId) return;
+
     try {
       let start, end;
 
@@ -184,7 +200,7 @@ export default function Home() {
       }
 
       const response = await fetch(
-        `/api/predictions?startDate=${start}&endDate=${end}`
+        `/api/predictions?walletId=${selectedWalletId}&startDate=${start}&endDate=${end}`
       );
       const data = await response.json();
       console.log('Predictions received:', data);
@@ -196,6 +212,11 @@ export default function Home() {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!selectedWalletId) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       await Promise.all([
         fetchTransactions(),
@@ -206,8 +227,11 @@ export default function Home() {
       ]);
       setLoading(false);
     };
-    loadData();
-  }, [dateRange, targetDate, viewMode]);
+
+    if (isInitialized) {
+      loadData();
+    }
+  }, [selectedWalletId, dateRange, targetDate, viewMode, isInitialized]);
 
   const handleTransactionAdded = () => {
     fetchTransactions();
@@ -236,10 +260,67 @@ export default function Home() {
     }
   };
 
+  // Attendre l'initialisation du wallet
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-xl text-gray-600">Initialisation...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Afficher un message si aucun portefeuille n'est sélectionné
+  if (!selectedWalletId) {
+    return (
+      <main className="min-h-screen p-4 md:p-8 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">
+            💰 Grigou - Gestionnaire de Budget
+          </h1>
+
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-8 text-center shadow-lg max-w-2xl mx-auto">
+            <svg className="w-20 h-20 text-yellow-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h2 className="text-2xl font-semibold text-yellow-900 mb-3">
+              Aucun portefeuille disponible
+            </h2>
+            <p className="text-yellow-800 mb-6">
+              Vous devez créer au moins un portefeuille pour commencer à gérer votre budget.
+            </p>
+            <button
+              onClick={() => setShowWalletManager(true)}
+              className="px-8 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-semibold text-lg shadow-md hover:shadow-lg"
+            >
+              Créer mon premier portefeuille
+            </button>
+          </div>
+
+          {showWalletManager && (
+            <WalletManager
+              onClose={() => setShowWalletManager(false)}
+              onWalletCreated={() => {
+                setShowWalletManager(false);
+                // Recharger la page pour récupérer le nouveau portefeuille
+                window.location.reload();
+              }}
+            />
+          )}
+        </div>
+      </main>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-gray-600">Chargement...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-xl text-gray-600">Chargement des données...</p>
+        </div>
       </div>
     );
   }
@@ -262,11 +343,19 @@ export default function Home() {
   const displayedMonthlyStats = viewMode === 'prediction' && monthlyStats ? monthlyStats : stats;
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
+    <main className="min-h-screen p-4 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">
-          💰 Grigou - Gestionnaire de Budget
-        </h1>
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+          <h1 className="text-4xl font-bold text-gray-800">
+            💰 Grigou - Gestionnaire de Budget
+          </h1>
+
+          <WalletSelector
+            selectedWalletId={selectedWalletId}
+            onWalletChange={selectWallet}
+            onManageWallets={() => setShowWalletManager(true)}
+          />
+        </div>
 
         {/* View Mode Controls */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
@@ -282,13 +371,13 @@ export default function Home() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setViewMode('period')}
-                    className="px-4 py-2 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded"
+                    className="px-4 py-2 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded transition-colors"
                   >
                     📅 Voir une période
                   </button>
                   <button
                     onClick={() => setViewMode('prediction')}
-                    className="px-4 py-2 text-sm bg-purple-500 text-white hover:bg-purple-600 rounded"
+                    className="px-4 py-2 text-sm bg-purple-500 text-white hover:bg-purple-600 rounded transition-colors"
                   >
                     🔮 Voir une prédiction
                   </button>
@@ -299,7 +388,7 @@ export default function Home() {
             {/* Period View Mode */}
             {viewMode === 'period' && (
               <>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <label className="text-sm font-medium text-gray-700">📅 Période:</label>
                   <input
                     type="date"
@@ -315,22 +404,22 @@ export default function Home() {
                     className="border border-gray-300 rounded px-3 py-1 text-sm"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => adjustDateRange(-1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors"
                   >
                     ← Mois précédent
                   </button>
                   <button
                     onClick={() => adjustDateRange(1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors"
                   >
                     Mois suivant →
                   </button>
                   <button
                     onClick={() => setViewMode('current')}
-                    className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded"
+                    className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded transition-colors"
                   >
                     Retour aujourd'hui
                   </button>
@@ -341,7 +430,7 @@ export default function Home() {
             {/* Prediction View Mode */}
             {viewMode === 'prediction' && (
               <>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <label className="text-sm font-medium text-gray-700">
                     🔮 Prédiction au:
                   </label>
@@ -355,22 +444,22 @@ export default function Home() {
                     Mode Prédiction
                   </span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => adjustDateRange(-1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors"
                   >
                     ← Mois précédent
                   </button>
                   <button
                     onClick={() => adjustDateRange(1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors"
                   >
                     Mois suivant →
                   </button>
                   <button
                     onClick={() => setViewMode('current')}
-                    className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded"
+                    className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded transition-colors"
                   >
                     Retour aujourd'hui
                   </button>
@@ -392,18 +481,21 @@ export default function Home() {
               <StatsCard
                 title={viewMode === 'prediction' ? "Revenus du mois" : "Revenus"}
                 amount={displayedMonthlyStats.totalIncome}
+                walletId={selectedWalletId}
                 type="income"
                 icon="↗"
               />
               <StatsCard
                 title={viewMode === 'prediction' ? "Dépenses du mois" : "Dépenses"}
                 amount={displayedMonthlyStats.totalOutcome}
+                walletId={selectedWalletId}
                 type="outcome"
                 icon="↘"
               />
               <StatsCard
                 title={viewMode === 'prediction' ? "Solde du mois" : "Solde"}
                 amount={displayedMonthlyStats.balance}
+                walletId={selectedWalletId}
                 type={displayedMonthlyStats.balance >= 0 ? 'income' : 'outcome'}
                 icon="="
               />
@@ -421,18 +513,21 @@ export default function Home() {
               <StatsCard
                 title="Revenus cumulés"
                 amount={stats.cumulativeIncome}
+                walletId={selectedWalletId}
                 type="income"
                 icon="↗"
               />
               <StatsCard
                 title="Dépenses cumulées"
                 amount={stats.cumulativeOutcome}
+                walletId={selectedWalletId}
                 type="outcome"
                 icon="↘"
               />
               <StatsCard
                 title="Solde cumulé"
                 amount={stats.cumulativeBalance}
+                walletId={selectedWalletId}
                 type={stats.cumulativeBalance >= 0 ? 'income' : 'outcome'}
                 icon="="
               />
@@ -456,7 +551,10 @@ export default function Home() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Nouvelle Transaction
             </h2>
-            <TransactionForm onTransactionAdded={handleTransactionAdded} />
+            <TransactionForm
+              onTransactionAdded={handleTransactionAdded}
+              selectedWalletId={selectedWalletId}
+            />
           </div>
         )}
 
@@ -471,6 +569,18 @@ export default function Home() {
               onTransactionDeleted={handleTransactionDeleted}
             />
           </div>
+        )}
+
+        {/* Wallet Manager Modal */}
+        {showWalletManager && (
+          <WalletManager
+            onClose={() => setShowWalletManager(false)}
+            onWalletCreated={() => {
+              setShowWalletManager(false);
+              // Recharger la page pour récupérer le nouveau portefeuille
+              window.location.reload();
+            }}
+          />
         )}
       </div>
     </main>

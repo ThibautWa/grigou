@@ -1,3 +1,4 @@
+// app/api/stats/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { format } from 'date-fns';
@@ -8,13 +9,21 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const includePredictions = searchParams.get('includePredictions') === 'true';
+    const walletId = searchParams.get('walletId');
 
-    let params: any[] = [];
-    let whereClause = '';
+    if (!walletId) {
+      return NextResponse.json(
+        { error: 'Wallet ID is required' },
+        { status: 400 }
+      );
+    }
+
+    let params: any[] = [parseInt(walletId)];
+    let whereClause = 'WHERE wallet_id = $1';
 
     if (startDate && endDate) {
-      whereClause = 'WHERE date >= $1 AND date <= $2';
-      params = [startDate, endDate];
+      whereClause += ' AND date >= $2 AND date <= $3';
+      params.push(startDate, endDate);
     }
 
     // Get total income and outcome ONLY for the selected period (real transactions)
@@ -41,33 +50,39 @@ export async function GET(request: NextRequest) {
     let cumulativeOutcome = 0;
 
     if (endDate) {
-      // Get all real transactions until endDate
+      // Get wallet initial balance
+      const walletQuery = `SELECT initial_balance FROM wallets WHERE id = $1`;
+      const walletResult = await pool.query(walletQuery, [parseInt(walletId)]);
+      const initialBalance = walletResult.rows[0] ? parseFloat(walletResult.rows[0].initial_balance) : 0;
+
+      // Get all real transactions until endDate for this wallet
       const allTransactionsQuery = `
         SELECT 
           COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
           COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as total_outcome
         FROM transactions
-        WHERE date <= $1
+        WHERE wallet_id = $1 AND date <= $2
       `;
-      const allTransactionsResult = await pool.query(allTransactionsQuery, [endDate]);
+      const allTransactionsResult = await pool.query(allTransactionsQuery, [parseInt(walletId), endDate]);
       const allTotals = allTransactionsResult.rows[0];
 
       cumulativeIncome = parseFloat(allTotals.total_income);
       cumulativeOutcome = parseFloat(allTotals.total_outcome);
-      cumulativeBalance = cumulativeIncome - cumulativeOutcome;
+      cumulativeBalance = initialBalance + cumulativeIncome - cumulativeOutcome;
 
+      console.log('Initial balance:', initialBalance);
       console.log('Real transactions balance:', cumulativeBalance);
 
       // Add predictions if requested
       if (includePredictions) {
         try {
-          // Get the oldest recurring transaction date
+          // Get the oldest recurring transaction date for this wallet
           const oldestRecurringQuery = `
             SELECT MIN(date) as oldest_date 
             FROM transactions 
-            WHERE is_recurring = true
+            WHERE wallet_id = $1 AND is_recurring = true
           `;
-          const oldestResult = await pool.query(oldestRecurringQuery);
+          const oldestResult = await pool.query(oldestRecurringQuery, [parseInt(walletId)]);
           const oldestDate = oldestResult.rows[0]?.oldest_date;
 
           if (oldestDate) {
@@ -77,7 +92,7 @@ export async function GET(request: NextRequest) {
 
             // Fetch ALL predictions from the oldest recurring transaction to endDate
             const allPredictionsResponse = await fetch(
-              `${request.nextUrl.origin}/api/predictions?startDate=${formattedOldestDate}&endDate=${endDate}`
+              `${request.nextUrl.origin}/api/predictions?walletId=${walletId}&startDate=${formattedOldestDate}&endDate=${endDate}`
             );
 
             if (allPredictionsResponse.ok) {
@@ -104,7 +119,7 @@ export async function GET(request: NextRequest) {
               console.log('Fetching period predictions from', startDate, 'to', endDate);
 
               const periodPredictionsResponse = await fetch(
-                `${request.nextUrl.origin}/api/predictions?startDate=${startDate}&endDate=${endDate}`
+                `${request.nextUrl.origin}/api/predictions?walletId=${walletId}&startDate=${startDate}&endDate=${endDate}`
               );
 
               if (periodPredictionsResponse.ok) {
@@ -133,7 +148,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get monthly evolution
+    // Get monthly evolution for this wallet
     const evolutionQuery = `
       SELECT 
         TO_CHAR(date, 'YYYY-MM') as month,

@@ -1,4 +1,4 @@
-// Ce fichier doit être placé dans : app/api/transactions/route.ts
+// app/api/transactions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
@@ -7,19 +7,24 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const walletId = searchParams.get('walletId');
 
-    let query = 'SELECT * FROM transactions';
-    const params: any[] = [];
+    if (!walletId) {
+      return NextResponse.json(
+        { error: 'Wallet ID is required' },
+        { status: 400 }
+      );
+    }
+
+    let query = 'SELECT * FROM transactions WHERE wallet_id = $1';
+    const params: any[] = [parseInt(walletId)];
 
     if (startDate && endDate) {
-      query += ' WHERE date >= $1 AND date <= $2';
+      query += ' AND date >= $2 AND date <= $3';
       params.push(startDate, endDate);
     }
 
     query += ' ORDER BY date DESC';
-
-    console.log('Executing query:', query);
-    console.log('With parameters:', params);
 
     const result = await pool.query(query, params);
 
@@ -28,8 +33,7 @@ export async function GET(request: NextRequest) {
       ...row,
       amount: parseFloat(row.amount)
     }));
-    console.log('Fetched transactions:');
-    console.log(transactions);
+
     return NextResponse.json(transactions);
   } catch (error) {
     console.error('Error fetching transactions:', error);
@@ -44,6 +48,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
+      wallet_id,
       type,
       amount,
       description,
@@ -53,6 +58,14 @@ export async function POST(request: NextRequest) {
       recurrence_type,
       recurrence_end_date
     } = body;
+
+    // Validation
+    if (!wallet_id) {
+      return NextResponse.json(
+        { error: 'Wallet ID is required' },
+        { status: 400 }
+      );
+    }
 
     if (!type || !amount || !description || !date) {
       return NextResponse.json(
@@ -68,13 +81,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insertion avec les champs de récurrence
+    // Vérifier que le portefeuille existe
+    const walletCheck = await pool.query(
+      'SELECT id FROM wallets WHERE id = $1',
+      [wallet_id]
+    );
+
+    if (walletCheck.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Wallet not found' },
+        { status: 404 }
+      );
+    }
+
+    // Insertion avec wallet_id
     const result = await pool.query(
       `INSERT INTO transactions 
-       (type, amount, description, category, date, is_recurring, recurrence_type, recurrence_end_date) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+       (wallet_id, type, amount, description, category, date, is_recurring, recurrence_type, recurrence_end_date) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
       [
+        wallet_id,
         type,
         amount,
         description,
