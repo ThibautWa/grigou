@@ -2,9 +2,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { format } from 'date-fns';
+import { requireUserId } from '@/lib/auth';
+import { canReadWallet } from '@/lib/auth/wallet-permissions';
 
 export async function GET(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    let userId: number;
+    try {
+      userId = await requireUserId();
+    } catch (error) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -18,6 +28,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Vérifier l'accès au wallet
+    const hasAccess = await canReadWallet(parseInt(walletId), userId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Accès au wallet refusé' },
+        { status: 403 }
+      );
+    }
+
     let params: any[] = [parseInt(walletId)];
     let whereClause = 'WHERE wallet_id = $1';
 
@@ -26,7 +45,7 @@ export async function GET(request: NextRequest) {
       params.push(startDate, endDate);
     }
 
-    // Get total income and outcome ONLY for the selected period (real transactions)
+    // Get total income and outcome for the selected period
     const totalsQuery = `
       SELECT 
         COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
@@ -38,24 +57,19 @@ export async function GET(request: NextRequest) {
     const totalsResult = await pool.query(totalsQuery, params);
     const totals = totalsResult.rows[0];
 
-    // Initialize with real transactions for the period
     let periodIncome = parseFloat(totals.total_income);
     let periodOutcome = parseFloat(totals.total_outcome);
 
-    console.log('Real transactions for period - Income:', periodIncome, 'Outcome:', periodOutcome);
-
-    // Calculate cumulative balance (everything from the beginning to endDate)
+    // Calculate cumulative balance
     let cumulativeBalance = 0;
     let cumulativeIncome = 0;
     let cumulativeOutcome = 0;
 
     if (endDate) {
-      // Get wallet initial balance
       const walletQuery = `SELECT initial_balance FROM wallets WHERE id = $1`;
       const walletResult = await pool.query(walletQuery, [parseInt(walletId)]);
       const initialBalance = walletResult.rows[0] ? parseFloat(walletResult.rows[0].initial_balance) : 0;
 
-      // Get all real transactions until endDate for this wallet
       const allTransactionsQuery = `
         SELECT 
           COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
@@ -70,13 +84,8 @@ export async function GET(request: NextRequest) {
       cumulativeOutcome = parseFloat(allTotals.total_outcome);
       cumulativeBalance = initialBalance + cumulativeIncome - cumulativeOutcome;
 
-      console.log('Initial balance:', initialBalance);
-      console.log('Real transactions balance:', cumulativeBalance);
-
-      // Add predictions if requested
       if (includePredictions) {
         try {
-          // Get the oldest recurring transaction date for this wallet
           const oldestRecurringQuery = `
             SELECT MIN(date) as oldest_date 
             FROM transactions 
@@ -88,9 +97,6 @@ export async function GET(request: NextRequest) {
           if (oldestDate) {
             const formattedOldestDate = format(new Date(oldestDate), 'yyyy-MM-dd');
 
-            console.log('Fetching ALL predictions from', formattedOldestDate, 'to', endDate);
-
-            // Fetch ALL predictions from the oldest recurring transaction to endDate
             const allPredictionsResponse = await fetch(
               `${request.nextUrl.origin}/api/predictions?walletId=${walletId}&startDate=${formattedOldestDate}&endDate=${endDate}`
             );
@@ -98,9 +104,6 @@ export async function GET(request: NextRequest) {
             if (allPredictionsResponse.ok) {
               const allPredictions = await allPredictionsResponse.json();
 
-              console.log('All predictions fetched:', allPredictions.length);
-
-              // Add all predicted amounts to cumulative balance
               allPredictions.forEach((pred: any) => {
                 if (pred.type === 'income') {
                   cumulativeBalance += pred.amount;
@@ -110,14 +113,9 @@ export async function GET(request: NextRequest) {
                   cumulativeOutcome += pred.amount;
                 }
               });
-
-              console.log('Cumulative balance after all predictions:', cumulativeBalance);
             }
 
-            // Fetch predictions for the selected period ONLY (for the monthly cards)
             if (startDate) {
-              console.log('Fetching period predictions from', startDate, 'to', endDate);
-
               const periodPredictionsResponse = await fetch(
                 `${request.nextUrl.origin}/api/predictions?walletId=${walletId}&startDate=${startDate}&endDate=${endDate}`
               );
@@ -125,20 +123,13 @@ export async function GET(request: NextRequest) {
               if (periodPredictionsResponse.ok) {
                 const periodPredictions = await periodPredictionsResponse.json();
 
-                console.log('Period predictions fetched:', periodPredictions.length);
-
-                // Add period predictions to the display totals
                 periodPredictions.forEach((pred: any) => {
                   if (pred.type === 'income') {
                     periodIncome += pred.amount;
-                    console.log('Adding period income prediction:', pred.amount);
                   } else {
                     periodOutcome += pred.amount;
-                    console.log('Adding period outcome prediction:', pred.amount);
                   }
                 });
-
-                console.log('Period totals with predictions - Income:', periodIncome, 'Outcome:', periodOutcome);
               }
             }
           }
@@ -148,7 +139,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get monthly evolution for this wallet
+    // Get monthly evolution
     const evolutionQuery = `
       SELECT 
         TO_CHAR(date, 'YYYY-MM') as month,
@@ -179,16 +170,12 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      // Monthly totals (for the period)
       totalIncome: periodIncome,
       totalOutcome: periodOutcome,
       balance: periodIncome - periodOutcome,
-
-      // Cumulative totals (from beginning to endDate)
       cumulativeIncome,
       cumulativeOutcome,
       cumulativeBalance,
-
       monthlyData,
     });
   } catch (error) {

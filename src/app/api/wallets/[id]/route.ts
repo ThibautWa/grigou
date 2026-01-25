@@ -1,6 +1,9 @@
+// app/api/wallets/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { UpdateWalletDto } from '@/types/wallet';
+import { requireUserId } from '@/lib/auth';
+import { requireWalletAccess, isWalletOwner } from '@/lib/auth/wallet-permissions';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -16,6 +19,14 @@ export async function GET(
     { params }: RouteParams
 ) {
     try {
+        // Vérifier l'authentification
+        let userId: number;
+        try {
+            userId = await requireUserId();
+        } catch (error) {
+            return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+        }
+
         const { id } = await params;
         const walletId = parseInt(id);
 
@@ -26,15 +37,24 @@ export async function GET(
             );
         }
 
+        // Vérifier l'accès au wallet
+        const access = await requireWalletAccess(walletId, userId, 'read');
+        if (!access.allowed) {
+            return NextResponse.json(
+                { error: access.error },
+                { status: 403 }
+            );
+        }
+
         const result = await pool.query(
             `SELECT w.*,
-        COALESCE(w.initial_balance + SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END), w.initial_balance) as current_balance,
-        COUNT(DISTINCT t.id) as transaction_count,
-        MAX(t.date) as last_transaction_date
-       FROM wallets w
-       LEFT JOIN transactions t ON t.wallet_id = w.id
-       WHERE w.id = $1
-       GROUP BY w.id`,
+                COALESCE(w.initial_balance + SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END), w.initial_balance) as current_balance,
+                COUNT(DISTINCT t.id) as transaction_count,
+                MAX(t.date) as last_transaction_date
+             FROM wallets w
+             LEFT JOIN transactions t ON t.wallet_id = w.id
+             WHERE w.id = $1
+             GROUP BY w.id`,
             [walletId]
         );
 
@@ -50,6 +70,7 @@ export async function GET(
             initial_balance: parseFloat(result.rows[0].initial_balance),
             current_balance: parseFloat(result.rows[0].current_balance),
             transaction_count: parseInt(result.rows[0].transaction_count),
+            permission: access.permission, // Inclure la permission dans la réponse
         };
 
         return NextResponse.json(wallet);
@@ -68,6 +89,14 @@ export async function PATCH(
     { params }: RouteParams
 ) {
     try {
+        // Vérifier l'authentification
+        let userId: number;
+        try {
+            userId = await requireUserId();
+        } catch (error) {
+            return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+        }
+
         const { id } = await params;
         const walletId = parseInt(id);
 
@@ -75,6 +104,15 @@ export async function PATCH(
             return NextResponse.json(
                 { error: 'Invalid wallet ID' },
                 { status: 400 }
+            );
+        }
+
+        // Vérifier l'accès admin au wallet
+        const access = await requireWalletAccess(walletId, userId, 'admin');
+        if (!access.allowed) {
+            return NextResponse.json(
+                { error: access.error },
+                { status: 403 }
             );
         }
 
@@ -108,9 +146,11 @@ export async function PATCH(
 
         if (body.is_default !== undefined) {
             if (body.is_default) {
-                // Si on veut définir ce portefeuille comme défaut,
-                // retirer le statut de tous les autres
-                await pool.query('UPDATE wallets SET is_default = FALSE');
+                // Retirer le statut de tous les autres wallets de l'utilisateur
+                await pool.query(
+                    'UPDATE wallets SET is_default = FALSE WHERE user_id = $1',
+                    [userId]
+                );
             }
             updates.push(`is_default = $${paramIndex++}`);
             values.push(body.is_default);
@@ -128,15 +168,14 @@ export async function PATCH(
             );
         }
 
-        // Ajouter l'ID comme dernier paramètre
         values.push(walletId);
 
         const query = `
-      UPDATE wallets
-      SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $${paramIndex}
-      RETURNING *
-    `;
+            UPDATE wallets
+            SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $${paramIndex}
+            RETURNING *
+        `;
 
         const result = await pool.query(query, values);
 
@@ -170,6 +209,14 @@ export async function DELETE(
     const client = await pool.connect();
 
     try {
+        // Vérifier l'authentification
+        let userId: number;
+        try {
+            userId = await requireUserId();
+        } catch (error) {
+            return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+        }
+
         const { id } = await params;
         const walletId = parseInt(id);
 
@@ -180,14 +227,22 @@ export async function DELETE(
             );
         }
 
-        // Récupérer le paramètre force de l'URL
+        // Seul le propriétaire peut supprimer un wallet
+        const isOwner = await isWalletOwner(walletId, userId);
+        if (!isOwner) {
+            return NextResponse.json(
+                { error: 'Seul le propriétaire peut supprimer ce portefeuille' },
+                { status: 403 }
+            );
+        }
+
         const url = new URL(request.url);
         const force = url.searchParams.get('force') === 'true';
 
         // Vérifier si c'est le portefeuille par défaut
         const checkDefault = await client.query(
-            'SELECT is_default, name FROM wallets WHERE id = $1',
-            [walletId]
+            'SELECT is_default, name FROM wallets WHERE id = $1 AND user_id = $2',
+            [walletId, userId]
         );
 
         if (checkDefault.rows.length === 0) {
@@ -214,22 +269,26 @@ export async function DELETE(
 
         const transactionCount = parseInt(transactionCheck.rows[0].count);
 
-        // Si le portefeuille a des transactions et que force=false
         if (transactionCount > 0 && !force) {
             return NextResponse.json(
                 {
-                    error: `Cannot delete wallet with ${transactionCount} transaction(s). Please delete or move transactions first, or archive the wallet instead.`,
+                    error: `Cannot delete wallet with ${transactionCount} transaction(s).`,
                     transaction_count: transactionCount,
-                    can_force: true, // Indique que la suppression forcée est possible
+                    can_force: true,
                 },
                 { status: 400 }
             );
         }
 
-        // Démarrer une transaction SQL
         await client.query('BEGIN');
 
-        // Si force=true, supprimer d'abord toutes les transactions
+        // Supprimer les partages associés
+        await client.query(
+            'DELETE FROM wallet_shares WHERE wallet_id = $1',
+            [walletId]
+        );
+
+        // Si force=true, supprimer les transactions
         if (transactionCount > 0) {
             await client.query(
                 'DELETE FROM transactions WHERE wallet_id = $1',
@@ -240,7 +299,6 @@ export async function DELETE(
         // Supprimer le portefeuille
         await client.query('DELETE FROM wallets WHERE id = $1', [walletId]);
 
-        // Valider la transaction
         await client.query('COMMIT');
 
         return NextResponse.json({

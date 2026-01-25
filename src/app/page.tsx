@@ -10,6 +10,8 @@ import PredictedTransactions from '@/components/PredictedTransactions';
 import WalletSelector from '@/components/WalletSelector';
 import WalletManager from '@/components/WalletManager';
 import { useWallet } from '@/hooks/useWallet';
+import UserMenu from '@/components/UserMenu';
+
 
 interface Transaction {
   id: number;
@@ -355,6 +357,7 @@ export default function Home() {
             onWalletChange={selectWallet}
             onManageWallets={() => setShowWalletManager(true)}
           />
+          <UserMenu />
         </div>
 
         {/* View Mode Controls */}

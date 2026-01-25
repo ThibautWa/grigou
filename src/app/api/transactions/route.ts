@@ -1,9 +1,19 @@
 // app/api/transactions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { requireUserId } from '@/lib/auth';
+import { canReadWallet, canWriteWallet } from '@/lib/auth/wallet-permissions';
 
 export async function GET(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    let userId: number;
+    try {
+      userId = await requireUserId();
+    } catch (error) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -13,6 +23,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Wallet ID is required' },
         { status: 400 }
+      );
+    }
+
+    // Vérifier l'accès au wallet
+    const hasAccess = await canReadWallet(parseInt(walletId), userId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Accès au wallet refusé' },
+        { status: 403 }
       );
     }
 
@@ -28,7 +47,6 @@ export async function GET(request: NextRequest) {
 
     const result = await pool.query(query, params);
 
-    // Convertir les montants en nombres
     const transactions = result.rows.map(row => ({
       ...row,
       amount: parseFloat(row.amount)
@@ -46,6 +64,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    let userId: number;
+    try {
+      userId = await requireUserId();
+    } catch (error) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       wallet_id,
@@ -59,11 +85,19 @@ export async function POST(request: NextRequest) {
       recurrence_end_date
     } = body;
 
-    // Validation
     if (!wallet_id) {
       return NextResponse.json(
         { error: 'Wallet ID is required' },
         { status: 400 }
+      );
+    }
+
+    // Vérifier l'accès en écriture au wallet
+    const hasAccess = await canWriteWallet(wallet_id, userId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Permission insuffisante pour ajouter une transaction' },
+        { status: 403 }
       );
     }
 
@@ -81,20 +115,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que le portefeuille existe
-    const walletCheck = await pool.query(
-      'SELECT id FROM wallets WHERE id = $1',
-      [wallet_id]
-    );
-
-    if (walletCheck.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Wallet not found' },
-        { status: 404 }
-      );
-    }
-
-    // Insertion avec wallet_id
     const result = await pool.query(
       `INSERT INTO transactions 
        (wallet_id, type, amount, description, category, date, is_recurring, recurrence_type, recurrence_end_date) 

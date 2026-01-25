@@ -1,9 +1,11 @@
+// components/WalletManager.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { WalletWithStats } from '@/types/wallet';
 import DuplicateWalletModal from '@/components/DuplicateWalletModal';
 import DeleteWalletModal from '@/components/DeleteWalletModal';
+import WalletShareModal from '@/components/WalletShareModal';
 
 interface WalletManagerProps {
     onClose: () => void;
@@ -17,6 +19,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
     const [editingWallet, setEditingWallet] = useState<WalletWithStats | null>(null);
     const [duplicatingWallet, setDuplicatingWallet] = useState<WalletWithStats | null>(null);
     const [deletingWallet, setDeletingWallet] = useState<WalletWithStats | null>(null);
+    const [sharingWallet, setSharingWallet] = useState<WalletWithStats | null>(null);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -108,6 +111,10 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
 
     const handleDuplicate = (wallet: WalletWithStats) => {
         setDuplicatingWallet(wallet);
+    };
+
+    const handleShare = (wallet: WalletWithStats) => {
+        setSharingWallet(wallet);
     };
 
     const handleDuplicated = async () => {
@@ -277,7 +284,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                         // View mode
                                         <div className="flex items-start justify-between">
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <h3 className="text-lg font-semibold text-gray-900">{wallet.name}</h3>
                                                     {wallet.is_default && (
                                                         <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
@@ -287,6 +294,12 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                     {wallet.archived && (
                                                         <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-medium rounded">
                                                             Archivé
+                                                        </span>
+                                                    )}
+                                                    {/* Indicateur de permission pour les wallets partagés */}
+                                                    {(wallet as any).permission && (wallet as any).permission !== 'owner' && (
+                                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+                                                            Partagé ({(wallet as any).permission})
                                                         </span>
                                                     )}
                                                 </div>
@@ -304,6 +317,19 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                             </div>
 
                                             <div className="flex gap-1 ml-4">
+                                                {/* Bouton de partage - seulement pour les propriétaires */}
+                                                {(!(wallet as any).permission || (wallet as any).permission === 'owner') && (
+                                                    <button
+                                                        onClick={() => handleShare(wallet)}
+                                                        className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                                        title="Partager ce portefeuille"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+
                                                 {/* Duplicate button */}
                                                 <button
                                                     onClick={() => handleDuplicate(wallet)}
@@ -315,7 +341,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                     </svg>
                                                 </button>
 
-                                                {!wallet.is_default && !wallet.archived && (
+                                                {!wallet.is_default && !wallet.archived && (!(wallet as any).permission || (wallet as any).permission === 'owner') && (
                                                     <button
                                                         onClick={() => handleSetDefault(wallet.id)}
                                                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -327,27 +353,31 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                     </button>
                                                 )}
 
-                                                <button
-                                                    onClick={() => setEditingWallet(wallet)}
-                                                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                                    title="Renommer"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                    </svg>
-                                                </button>
+                                                {(!(wallet as any).permission || (wallet as any).permission === 'owner' || (wallet as any).permission === 'admin') && (
+                                                    <button
+                                                        onClick={() => setEditingWallet(wallet)}
+                                                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                        title="Renommer"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
+                                                )}
 
-                                                <button
-                                                    onClick={() => handleUpdate(wallet.id, { archived: !wallet.archived })}
-                                                    className="p-2 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
-                                                    title={wallet.archived ? 'Désarchiver' : 'Archiver'}
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                    </svg>
-                                                </button>
+                                                {(!(wallet as any).permission || (wallet as any).permission === 'owner' || (wallet as any).permission === 'admin') && (
+                                                    <button
+                                                        onClick={() => handleUpdate(wallet.id, { archived: !wallet.archived })}
+                                                        className="p-2 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                                                        title={wallet.archived ? 'Désarchiver' : 'Archiver'}
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                        </svg>
+                                                    </button>
+                                                )}
 
-                                                {!wallet.is_default && (
+                                                {!wallet.is_default && (!(wallet as any).permission || (wallet as any).permission === 'owner') && (
                                                     <button
                                                         onClick={() => handleDelete(wallet)}
                                                         className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -378,7 +408,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                 </div>
             </div>
 
-            {/* Duplicate Modal */}
+            {/* Modals */}
             {duplicatingWallet && (
                 <DuplicateWalletModal
                     sourceWallet={duplicatingWallet}
@@ -387,12 +417,18 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                 />
             )}
 
-            {/* Delete Modal */}
             {deletingWallet && (
                 <DeleteWalletModal
                     wallet={deletingWallet}
                     onClose={() => setDeletingWallet(null)}
                     onDeleted={handleDeleted}
+                />
+            )}
+
+            {sharingWallet && (
+                <WalletShareModal
+                    wallet={sharingWallet}
+                    onClose={() => setSharingWallet(null)}
                 />
             )}
         </>

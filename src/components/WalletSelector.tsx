@@ -1,7 +1,13 @@
+// components/WalletSelector.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Wallet } from '@/types/wallet';
+
+interface WalletWithSharing extends Wallet {
+    permission?: 'owner' | 'admin' | 'write' | 'read';
+    owner_name?: string;
+}
 
 interface WalletSelectorProps {
     selectedWalletId: number | null;
@@ -14,7 +20,7 @@ export default function WalletSelector({
     onWalletChange,
     onManageWallets,
 }: WalletSelectorProps) {
-    const [wallets, setWallets] = useState<Wallet[]>([]);
+    const [wallets, setWallets] = useState<WalletWithSharing[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -41,6 +47,21 @@ export default function WalletSelector({
         }
     };
 
+    // Rafraîchir la liste quand les invitations sont acceptées
+    const refreshWallets = () => {
+        fetchWallets();
+    };
+
+    // Exposer la fonction de rafraîchissement
+    useEffect(() => {
+        // @ts-ignore
+        window.refreshWalletSelector = refreshWallets;
+        return () => {
+            // @ts-ignore
+            delete window.refreshWalletSelector;
+        };
+    }, []);
+
     if (loading) {
         return (
             <div className="flex items-center gap-2 text-gray-500">
@@ -49,6 +70,19 @@ export default function WalletSelector({
             </div>
         );
     }
+
+    // Séparer les wallets personnels et partagés
+    const ownedWallets = wallets.filter(w => !w.permission || w.permission === 'owner');
+    const sharedWallets = wallets.filter(w => w.permission && w.permission !== 'owner');
+
+    const getPermissionLabel = (permission: string) => {
+        switch (permission) {
+            case 'admin': return '👑';
+            case 'write': return '✏️';
+            case 'read': return '👁️';
+            default: return '';
+        }
+    };
 
     return (
         <div className="flex items-center gap-3">
@@ -69,14 +103,31 @@ export default function WalletSelector({
                 <select
                     value={selectedWalletId || ''}
                     onChange={(e) => onWalletChange(parseInt(e.target.value))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 font-medium cursor-pointer hover:border-gray-400 transition-colors"
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 font-medium cursor-pointer hover:border-gray-400 transition-colors min-w-[200px]"
                 >
-                    {wallets.map((wallet) => (
-                        <option key={wallet.id} value={wallet.id}>
-                            {wallet.name}
-                            {wallet.is_default && ' (Défaut)'}
-                        </option>
-                    ))}
+                    {/* Wallets personnels */}
+                    {ownedWallets.length > 0 && (
+                        <optgroup label="📁 Mes portefeuilles">
+                            {ownedWallets.map((wallet) => (
+                                <option key={wallet.id} value={wallet.id}>
+                                    {wallet.name}
+                                    {wallet.is_default && ' ⭐'}
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
+
+                    {/* Wallets partagés */}
+                    {sharedWallets.length > 0 && (
+                        <optgroup label="🤝 Partagés avec moi">
+                            {sharedWallets.map((wallet) => (
+                                <option key={wallet.id} value={wallet.id}>
+                                    {getPermissionLabel(wallet.permission!)} {wallet.name}
+                                    {wallet.owner_name && ` (${wallet.owner_name})`}
+                                </option>
+                            ))}
+                        </optgroup>
+                    )}
                 </select>
             </div>
 

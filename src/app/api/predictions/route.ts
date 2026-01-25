@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { addDays, addWeeks, addMonths, addYears, isBefore, isAfter, format } from 'date-fns';
+import { requireUserId } from '@/lib/auth';
+import { canReadWallet } from '@/lib/auth/wallet-permissions';
 
 interface RecurringTransaction {
   id: number;
@@ -15,10 +17,7 @@ interface RecurringTransaction {
   recurrence_end_date: string | null;
 }
 
-function getNextOccurrence(
-  startDate: Date,
-  recurrenceType: string
-): Date {
+function getNextOccurrence(startDate: Date, recurrenceType: string): Date {
   switch (recurrenceType) {
     case 'daily':
       return addDays(startDate, 1);
@@ -39,20 +38,15 @@ function getNextOccurrence(
   }
 }
 
-function generatePredictions(
-  transaction: RecurringTransaction,
-  endDate: Date
-): any[] {
+function generatePredictions(transaction: RecurringTransaction, endDate: Date): any[] {
   const predictions = [];
   let currentDate = new Date(transaction.date);
   const maxDate = transaction.recurrence_end_date
     ? new Date(transaction.recurrence_end_date)
     : endDate;
 
-  // Limiter à la date la plus proche (recurrence_end_date ou endDate)
   const limitDate = isBefore(maxDate, endDate) ? maxDate : endDate;
 
-  // Générer les occurrences futures
   while (true) {
     currentDate = getNextOccurrence(currentDate, transaction.recurrence_type);
 
@@ -71,22 +65,38 @@ function generatePredictions(
       original_transaction_id: transaction.id,
     });
   }
-  console.log('Generated predictions:', predictions);
+
   return predictions;
 }
 
 export async function GET(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    let userId: number;
+    try {
+      userId = await requireUserId();
+    } catch (error) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const walletId = searchParams.get('walletId');
 
-    // Wallet ID est obligatoire
     if (!walletId) {
       return NextResponse.json(
         { error: 'Wallet ID is required' },
         { status: 400 }
+      );
+    }
+
+    // Vérifier l'accès au wallet
+    const hasAccess = await canReadWallet(parseInt(walletId), userId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Accès au wallet refusé' },
+        { status: 403 }
       );
     }
 
@@ -100,7 +110,6 @@ export async function GET(request: NextRequest) {
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
 
-    // Récupérer la date la plus ancienne des transactions récurrentes pour ce portefeuille
     const oldestRecurringResult = await pool.query(
       `SELECT MIN(date) as oldest_date 
        FROM transactions 
@@ -110,8 +119,6 @@ export async function GET(request: NextRequest) {
 
     const oldestRecurringDate = oldestRecurringResult.rows[0]?.oldest_date || startDate;
 
-    // Récupérer TOUTES les transactions récurrentes actives pour ce portefeuille
-    // en utilisant la date la plus ancienne comme référence
     const result = await pool.query<RecurringTransaction>(
       `SELECT * FROM transactions 
        WHERE wallet_id = $1
@@ -122,30 +129,20 @@ export async function GET(request: NextRequest) {
       [parseInt(walletId), endDate, oldestRecurringDate]
     );
 
-    console.log('Wallet ID:', walletId);
-    console.log('Date range:', startDate, 'to', endDate);
-    console.log('Oldest recurring date:', oldestRecurringDate);
-    console.log('Recurring transactions found:', result.rows.length);
-
     const recurringTransactions = result.rows;
     let allPredictions: any[] = [];
 
-    // Générer les prédictions pour chaque transaction récurrente
     for (const transaction of recurringTransactions) {
       const predictions = generatePredictions(transaction, endDateObj);
       allPredictions = [...allPredictions, ...predictions];
     }
 
-    // Filtrer uniquement par la période demandée
     const filteredPredictions = allPredictions.filter(pred => {
       const predDate = new Date(pred.date);
       return predDate >= startDateObj && predDate <= endDateObj;
     });
 
-    // Trier par date
     filteredPredictions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    console.log('Predictions generated:', filteredPredictions.length);
 
     return NextResponse.json(filteredPredictions);
   } catch (error) {
