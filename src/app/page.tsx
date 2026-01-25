@@ -11,6 +11,7 @@ import WalletSelector from '@/components/WalletSelector';
 import WalletManager from '@/components/WalletManager';
 import { useWallet } from '@/hooks/useWallet';
 import UserMenu from '@/components/UserMenu';
+import InvitationsList from '@/components/InvitationsList';
 
 
 interface Transaction {
@@ -359,6 +360,10 @@ export default function Home() {
           />
           <UserMenu />
         </div>
+        <InvitationsList onInvitationAccepted={(walletId) => {
+          // Rafraîchir la liste des wallets après acceptation
+          window.location.reload();
+        }} />
 
         {/* View Mode Controls */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
