@@ -1,9 +1,125 @@
 // app/api/stats/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { format } from 'date-fns';
+import { addDays, addWeeks, addMonths, addYears, isBefore, isAfter, format } from 'date-fns';
 import { requireUserId } from '@/lib/auth';
 import { canReadWallet } from '@/lib/auth/wallet-permissions';
+
+// ============================================
+// Logique de prédictions intégrée directement
+// ============================================
+
+interface RecurringTransaction {
+  id: number;
+  type: 'income' | 'outcome';
+  amount: string;
+  description: string | null;
+  category_id: number | null;
+  date: string;
+  is_recurring: boolean;
+  recurrence_type: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'yearly';
+  recurrence_end_date: string | null;
+}
+
+function getNextOccurrence(startDate: Date, recurrenceType: string): Date {
+  switch (recurrenceType) {
+    case 'daily':
+      return addDays(startDate, 1);
+    case 'weekly':
+      return addWeeks(startDate, 1);
+    case 'biweekly':
+      return addWeeks(startDate, 2);
+    case 'monthly':
+      return addMonths(startDate, 1);
+    case 'bimonthly':
+      return addMonths(startDate, 2);
+    case 'quarterly':
+      return addMonths(startDate, 3);
+    case 'yearly':
+      return addYears(startDate, 1);
+    default:
+      return addMonths(startDate, 1);
+  }
+}
+
+function generatePredictionsForTransaction(
+  transaction: RecurringTransaction,
+  endDate: Date
+): Array<{ type: 'income' | 'outcome'; amount: number; date: string }> {
+  const predictions: Array<{ type: 'income' | 'outcome'; amount: number; date: string }> = [];
+  let currentDate = new Date(transaction.date);
+  const maxDate = transaction.recurrence_end_date
+    ? new Date(transaction.recurrence_end_date)
+    : endDate;
+
+  const limitDate = isBefore(maxDate, endDate) ? maxDate : endDate;
+
+  while (true) {
+    currentDate = getNextOccurrence(currentDate, transaction.recurrence_type);
+
+    if (isAfter(currentDate, limitDate)) {
+      break;
+    }
+
+    predictions.push({
+      type: transaction.type,
+      amount: parseFloat(transaction.amount),
+      date: format(currentDate, 'yyyy-MM-dd'),
+    });
+  }
+
+  return predictions;
+}
+
+async function getPredictions(
+  walletId: number,
+  startDate: string,
+  endDate: string
+): Promise<Array<{ type: 'income' | 'outcome'; amount: number; date: string }>> {
+  const endDateObj = new Date(endDate);
+  const startDateObj = new Date(startDate);
+
+  // Récupérer la date la plus ancienne des transactions récurrentes
+  const oldestRecurringResult = await pool.query(
+    `SELECT MIN(date) as oldest_date 
+     FROM transactions 
+     WHERE wallet_id = $1 AND is_recurring = true`,
+    [walletId]
+  );
+
+  const oldestRecurringDate = oldestRecurringResult.rows[0]?.oldest_date || startDate;
+
+  // Récupérer les transactions récurrentes
+  const result = await pool.query<RecurringTransaction>(
+    `SELECT * FROM transactions 
+     WHERE wallet_id = $1
+     AND is_recurring = TRUE 
+     AND date <= $2
+     AND (recurrence_end_date IS NULL OR recurrence_end_date >= $3)
+     ORDER BY date ASC`,
+    [walletId, endDate, oldestRecurringDate]
+  );
+
+  const recurringTransactions = result.rows;
+  let allPredictions: Array<{ type: 'income' | 'outcome'; amount: number; date: string }> = [];
+
+  for (const transaction of recurringTransactions) {
+    const predictions = generatePredictionsForTransaction(transaction, endDateObj);
+    allPredictions = [...allPredictions, ...predictions];
+  }
+
+  // Filtrer par date de début
+  const filteredPredictions = allPredictions.filter(pred => {
+    const predDate = new Date(pred.date);
+    return predDate >= startDateObj && predDate <= endDateObj;
+  });
+
+  return filteredPredictions;
+}
+
+// ============================================
+// Route principale
+// ============================================
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,8 +144,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const walletIdNum = parseInt(walletId);
+
     // Vérifier l'accès au wallet
-    const hasAccess = await canReadWallet(parseInt(walletId), userId);
+    const hasAccess = await canReadWallet(walletIdNum, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: 'Accès au wallet refusé' },
@@ -37,7 +155,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let params: any[] = [parseInt(walletId)];
+    let params: any[] = [walletIdNum];
     let whereClause = 'WHERE wallet_id = $1';
 
     if (startDate && endDate) {
@@ -67,7 +185,7 @@ export async function GET(request: NextRequest) {
 
     if (endDate) {
       const walletQuery = `SELECT initial_balance FROM wallets WHERE id = $1`;
-      const walletResult = await pool.query(walletQuery, [parseInt(walletId)]);
+      const walletResult = await pool.query(walletQuery, [walletIdNum]);
       const initialBalance = walletResult.rows[0] ? parseFloat(walletResult.rows[0].initial_balance) : 0;
 
       const allTransactionsQuery = `
@@ -77,64 +195,56 @@ export async function GET(request: NextRequest) {
         FROM transactions
         WHERE wallet_id = $1 AND date <= $2
       `;
-      const allTransactionsResult = await pool.query(allTransactionsQuery, [parseInt(walletId), endDate]);
+      const allTransactionsResult = await pool.query(allTransactionsQuery, [walletIdNum, endDate]);
       const allTotals = allTransactionsResult.rows[0];
 
       cumulativeIncome = parseFloat(allTotals.total_income);
       cumulativeOutcome = parseFloat(allTotals.total_outcome);
       cumulativeBalance = initialBalance + cumulativeIncome - cumulativeOutcome;
 
+      // Inclure les prédictions si demandé
       if (includePredictions) {
         try {
+          // Récupérer la date la plus ancienne des transactions récurrentes
           const oldestRecurringQuery = `
             SELECT MIN(date) as oldest_date 
             FROM transactions 
             WHERE wallet_id = $1 AND is_recurring = true
           `;
-          const oldestResult = await pool.query(oldestRecurringQuery, [parseInt(walletId)]);
+          const oldestResult = await pool.query(oldestRecurringQuery, [walletIdNum]);
           const oldestDate = oldestResult.rows[0]?.oldest_date;
 
           if (oldestDate) {
             const formattedOldestDate = format(new Date(oldestDate), 'yyyy-MM-dd');
 
-            const allPredictionsResponse = await fetch(
-              `${request.nextUrl.origin}/api/predictions?walletId=${walletId}&startDate=${formattedOldestDate}&endDate=${endDate}`
-            );
+            // Obtenir toutes les prédictions jusqu'à endDate
+            const allPredictions = await getPredictions(walletIdNum, formattedOldestDate, endDate);
 
-            if (allPredictionsResponse.ok) {
-              const allPredictions = await allPredictionsResponse.json();
+            allPredictions.forEach((pred) => {
+              if (pred.type === 'income') {
+                cumulativeBalance += pred.amount;
+                cumulativeIncome += pred.amount;
+              } else {
+                cumulativeBalance -= pred.amount;
+                cumulativeOutcome += pred.amount;
+              }
+            });
 
-              allPredictions.forEach((pred: any) => {
+            // Obtenir les prédictions pour la période sélectionnée
+            if (startDate) {
+              const periodPredictions = await getPredictions(walletIdNum, startDate, endDate);
+
+              periodPredictions.forEach((pred) => {
                 if (pred.type === 'income') {
-                  cumulativeBalance += pred.amount;
-                  cumulativeIncome += pred.amount;
+                  periodIncome += pred.amount;
                 } else {
-                  cumulativeBalance -= pred.amount;
-                  cumulativeOutcome += pred.amount;
+                  periodOutcome += pred.amount;
                 }
               });
             }
-
-            if (startDate) {
-              const periodPredictionsResponse = await fetch(
-                `${request.nextUrl.origin}/api/predictions?walletId=${walletId}&startDate=${startDate}&endDate=${endDate}`
-              );
-
-              if (periodPredictionsResponse.ok) {
-                const periodPredictions = await periodPredictionsResponse.json();
-
-                periodPredictions.forEach((pred: any) => {
-                  if (pred.type === 'income') {
-                    periodIncome += pred.amount;
-                  } else {
-                    periodOutcome += pred.amount;
-                  }
-                });
-              }
-            }
           }
         } catch (error) {
-          console.error('Error fetching predictions:', error);
+          console.error('Error calculating predictions:', error);
         }
       }
     }

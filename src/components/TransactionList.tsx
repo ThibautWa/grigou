@@ -5,12 +5,16 @@ import { fr } from 'date-fns/locale';
 import { useState } from 'react';
 import EditTransactionModal from './EditTransactionModal';
 
-interface Transaction {
+export interface Transaction {
   id: number;
   type: 'income' | 'outcome';
   amount: number;
-  description: string;
+  description: string | null;
   category: string | null;
+  category_id: number | null;
+  category_name?: string | null;
+  category_icon?: string | null;
+  category_color?: string | null;
   date: string;
   is_recurring?: boolean;
   recurrence_type?: string;
@@ -135,7 +139,11 @@ export default function TransactionList({
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-900">{transaction.description}</span>
+                    <span className="font-medium text-gray-900">
+                      {transaction.description || (
+                        <span className="text-gray-400 italic">Sans description</span>
+                      )}
+                    </span>
                     {transaction.is_recurring && (
                       <span className="text-xs text-blue-600 flex items-center gap-1 mt-1">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -154,9 +162,21 @@ export default function TransactionList({
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  {transaction.category ? (
-                    <span className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
-                      {transaction.category}
+                  {transaction.category_id || transaction.category ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded"
+                      style={{
+                        backgroundColor: transaction.category_color
+                          ? transaction.category_color + '20'
+                          : '#f3f4f6'
+                      }}
+                    >
+                      {transaction.category_icon && (
+                        <span>{transaction.category_icon}</span>
+                      )}
+                      <span className="text-gray-700">
+                        {transaction.category_name || transaction.category}
+                      </span>
                     </span>
                   ) : (
                     <span className="text-sm text-gray-400">—</span>

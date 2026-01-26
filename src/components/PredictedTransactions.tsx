@@ -7,7 +7,7 @@ interface PredictedTransaction {
   id: string;
   type: 'income' | 'outcome';
   amount: number;
-  description: string;
+  description: string | null;
   category: string | null;
   date: string;
   is_predicted: boolean;
@@ -99,11 +99,10 @@ export default function PredictedTransactions({
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">
                         <span
-                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            prediction.type === 'income'
+                          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${prediction.type === 'income'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-red-100 text-red-700'
-                          }`}
+                            }`}
                         >
                           {prediction.type === 'income' ? 'Revenu' : 'Dépense'}
                         </span>

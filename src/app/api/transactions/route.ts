@@ -35,15 +35,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let query = 'SELECT * FROM transactions WHERE wallet_id = $1';
+    let query = `
+      SELECT 
+        t.*,
+        c.name as category_name,
+        c.icon as category_icon,
+        c.color as category_color
+      FROM transactions t
+      LEFT JOIN categories c ON t.category_id = c.id
+      WHERE t.wallet_id = $1
+    `;
     const params: any[] = [parseInt(walletId)];
 
     if (startDate && endDate) {
-      query += ' AND date >= $2 AND date <= $3';
+      query += ' AND t.date >= $2 AND t.date <= $3';
       params.push(startDate, endDate);
     }
 
-    query += ' ORDER BY date DESC';
+    query += ' ORDER BY t.date DESC, t.created_at DESC';
 
     const result = await pool.query(query, params);
 
@@ -77,14 +86,15 @@ export async function POST(request: NextRequest) {
       wallet_id,
       type,
       amount,
-      description,
-      category,
+      description,  // Optionnel maintenant
+      category_id,  // Obligatoire maintenant
       date,
       is_recurring,
       recurrence_type,
       recurrence_end_date
     } = body;
 
+    // Validation du wallet_id
     if (!wallet_id) {
       return NextResponse.json(
         { error: 'Wallet ID is required' },
@@ -101,13 +111,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!type || !amount || !description || !date) {
+    // Validation des champs obligatoires
+    if (!type || amount === undefined || amount === null || !date) {
       return NextResponse.json(
-        { error: 'Tous les champs requis doivent être remplis' },
+        { error: 'Les champs type, amount et date sont requis' },
         { status: 400 }
       );
     }
 
+    // Validation du type
     if (type !== 'income' && type !== 'outcome') {
       return NextResponse.json(
         { error: 'Le type doit être "income" ou "outcome"' },
@@ -115,17 +127,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validation du montant
+    if (typeof amount !== 'number' || amount <= 0) {
+      return NextResponse.json(
+        { error: 'Le montant doit être un nombre positif' },
+        { status: 400 }
+      );
+    }
+
+    // Validation de la catégorie (obligatoire)
+    if (!category_id) {
+      return NextResponse.json(
+        { error: 'La catégorie est obligatoire' },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que la catégorie existe et est accessible
+    const categoryCheck = await pool.query(
+      `SELECT id FROM categories 
+       WHERE id = $1 
+       AND (is_system = TRUE OR user_id = $2)
+       AND is_active = TRUE`,
+      [category_id, userId]
+    );
+
+    if (categoryCheck.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Catégorie invalide ou inaccessible' },
+        { status: 400 }
+      );
+    }
+
+    // Insertion de la transaction
     const result = await pool.query(
       `INSERT INTO transactions 
-       (wallet_id, type, amount, description, category, date, is_recurring, recurrence_type, recurrence_end_date) 
+       (wallet_id, type, amount, description, category_id, date, is_recurring, recurrence_type, recurrence_end_date) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
        RETURNING *`,
       [
         wallet_id,
         type,
         amount,
-        description,
-        category,
+        description || null,  // Description optionnelle
+        category_id,
         date,
         is_recurring || false,
         is_recurring ? recurrence_type : null,
@@ -133,9 +178,22 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    // Récupérer la transaction avec les infos de catégorie
+    const transactionWithCategory = await pool.query(
+      `SELECT 
+        t.*,
+        c.name as category_name,
+        c.icon as category_icon,
+        c.color as category_color
+      FROM transactions t
+      LEFT JOIN categories c ON t.category_id = c.id
+      WHERE t.id = $1`,
+      [result.rows[0].id]
+    );
+
     const transaction = {
-      ...result.rows[0],
-      amount: parseFloat(result.rows[0].amount)
+      ...transactionWithCategory.rows[0],
+      amount: parseFloat(transactionWithCategory.rows[0].amount)
     };
 
     return NextResponse.json(transaction, { status: 201 });

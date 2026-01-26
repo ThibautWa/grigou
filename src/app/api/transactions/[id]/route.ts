@@ -1,7 +1,8 @@
+// app/api/transactions/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireUserId } from '@/lib/auth';
-import { canWriteWallet } from '@/lib/auth/wallet-permissions';
+import { canWriteWallet, canReadWallet } from '@/lib/auth/wallet-permissions';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,10 +15,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const userId = await requireUserId();
 
     const result = await pool.query(
-      `SELECT t.*, w.user_id as wallet_owner_id
-       FROM transactions t
-       JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.id = $1`,
+      `SELECT 
+        t.id,
+        t.wallet_id,
+        t.type,
+        t.amount,
+        t.description,
+        t.category_id,
+        t.date,
+        t.is_recurring,
+        t.recurrence_type,
+        t.recurrence_end_date,
+        t.created_at,
+        t.updated_at,
+        c.name as category_name,
+        c.icon as category_icon,
+        c.color as category_color
+      FROM transactions t
+      LEFT JOIN categories c ON t.category_id = c.id
+      WHERE t.id = $1`,
       [parseInt(id)]
     );
 
@@ -31,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const transaction = result.rows[0];
 
     // Vérifier l'accès au wallet
-    const hasAccess = await canWriteWallet(transaction.wallet_id, userId);
+    const hasAccess = await canReadWallet(transaction.wallet_id, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: 'Accès refusé' },
@@ -39,7 +55,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json(transaction);
+    return NextResponse.json({
+      ...transaction,
+      amount: parseFloat(transaction.amount)
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
@@ -59,12 +78,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const userId = await requireUserId();
     const body = await request.json();
 
-    // Récupérer la transaction existante pour vérifier les permissions
+    // Récupérer la transaction existante
     const existingResult = await pool.query(
-      `SELECT t.*, w.user_id as wallet_owner_id
-       FROM transactions t
-       JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.id = $1`,
+      'SELECT * FROM transactions WHERE id = $1',
       [parseInt(id)]
     );
 
@@ -81,7 +97,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const hasAccess = await canWriteWallet(existingTransaction.wallet_id, userId);
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'Accès refusé' },
+        { error: 'Permission insuffisante pour modifier cette transaction' },
         { status: 403 }
       );
     }
@@ -93,9 +109,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Type
     if (body.type !== undefined) {
-      if (!['income', 'outcome'].includes(body.type)) {
+      if (body.type !== 'income' && body.type !== 'outcome') {
         return NextResponse.json(
-          { error: 'Type invalide. Utilisez "income" ou "outcome"' },
+          { error: 'Le type doit être "income" ou "outcome"' },
           { status: 400 }
         );
       }
@@ -104,98 +120,99 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       paramIndex++;
     }
 
-    // Montant
+    // Amount
     if (body.amount !== undefined) {
-      const amount = parseFloat(body.amount);
-      if (isNaN(amount) || amount < 0) {
+      if (typeof body.amount !== 'number' || body.amount <= 0) {
         return NextResponse.json(
-          { error: 'Montant invalide' },
+          { error: 'Le montant doit être un nombre positif' },
           { status: 400 }
         );
       }
       updates.push(`amount = $${paramIndex}`);
-      values.push(amount);
+      values.push(body.amount);
       paramIndex++;
     }
 
-    // Description
+    // Description (optionnel, peut être null)
     if (body.description !== undefined) {
-      if (!body.description || body.description.trim() === '') {
+      updates.push(`description = $${paramIndex}`);
+      values.push(body.description || null);
+      paramIndex++;
+    }
+
+    // Category ID (obligatoire si fourni)
+    if (body.category_id !== undefined) {
+      if (body.category_id === null) {
         return NextResponse.json(
-          { error: 'La description est requise' },
+          { error: 'La catégorie est obligatoire' },
           { status: 400 }
         );
       }
-      updates.push(`description = $${paramIndex}`);
-      values.push(body.description.trim());
-      paramIndex++;
-    }
 
-    // Catégorie
-    if (body.category !== undefined) {
-      updates.push(`category = $${paramIndex}`);
-      values.push(body.category || null);
+      // Vérifier que la catégorie existe et est accessible
+      const categoryCheck = await pool.query(
+        `SELECT id FROM categories 
+         WHERE id = $1 
+         AND (is_system = TRUE OR user_id = $2)
+         AND is_active = TRUE`,
+        [body.category_id, userId]
+      );
+
+      if (categoryCheck.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Catégorie invalide ou inaccessible' },
+          { status: 400 }
+        );
+      }
+
+      updates.push(`category_id = $${paramIndex}`);
+      values.push(body.category_id);
       paramIndex++;
     }
 
     // Date
     if (body.date !== undefined) {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(body.date)) {
-        return NextResponse.json(
-          { error: 'Format de date invalide. Utilisez YYYY-MM-DD' },
-          { status: 400 }
-        );
-      }
       updates.push(`date = $${paramIndex}`);
       values.push(body.date);
       paramIndex++;
     }
 
-    // Transaction récurrente
+    // Récurrence
     if (body.is_recurring !== undefined) {
       updates.push(`is_recurring = $${paramIndex}`);
       values.push(body.is_recurring);
       paramIndex++;
 
-      // Si on désactive la récurrence, nettoyer les champs associés
-      if (!body.is_recurring) {
+      if (body.is_recurring) {
+        if (body.recurrence_type) {
+          updates.push(`recurrence_type = $${paramIndex}`);
+          values.push(body.recurrence_type);
+          paramIndex++;
+        }
+        if (body.recurrence_end_date !== undefined) {
+          updates.push(`recurrence_end_date = $${paramIndex}`);
+          values.push(body.recurrence_end_date || null);
+          paramIndex++;
+        }
+      } else {
+        // Si on désactive la récurrence, nettoyer les champs
         updates.push(`recurrence_type = NULL`);
         updates.push(`recurrence_end_date = NULL`);
       }
-    }
-
-    // Type de récurrence
-    if (body.recurrence_type !== undefined && body.is_recurring !== false) {
-      const validRecurrenceTypes = ['daily', 'weekly', 'biweekly', 'monthly', 'bimonthly', 'quarterly', 'yearly'];
-      if (body.recurrence_type && !validRecurrenceTypes.includes(body.recurrence_type)) {
-        return NextResponse.json(
-          { error: 'Type de récurrence invalide' },
-          { status: 400 }
-        );
+    } else {
+      // Mise à jour des champs de récurrence individuellement
+      if (body.recurrence_type !== undefined) {
+        updates.push(`recurrence_type = $${paramIndex}`);
+        values.push(body.recurrence_type);
+        paramIndex++;
       }
-      updates.push(`recurrence_type = $${paramIndex}`);
-      values.push(body.recurrence_type);
-      paramIndex++;
-    }
-
-    // Date de fin de récurrence
-    if (body.recurrence_end_date !== undefined && body.is_recurring !== false) {
-      if (body.recurrence_end_date) {
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        if (!dateRegex.test(body.recurrence_end_date)) {
-          return NextResponse.json(
-            { error: 'Format de date de fin invalide. Utilisez YYYY-MM-DD' },
-            { status: 400 }
-          );
-        }
+      if (body.recurrence_end_date !== undefined) {
+        updates.push(`recurrence_end_date = $${paramIndex}`);
+        values.push(body.recurrence_end_date || null);
+        paramIndex++;
       }
-      updates.push(`recurrence_end_date = $${paramIndex}`);
-      values.push(body.recurrence_end_date || null);
-      paramIndex++;
     }
 
-    // Vérifier qu'il y a des champs à mettre à jour
     if (updates.length === 0) {
       return NextResponse.json(
         { error: 'Aucun champ à mettre à jour' },
@@ -206,7 +223,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Ajouter updated_at
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
 
-    // Ajouter l'ID pour la clause WHERE
+    // Ajouter l'ID à la fin des paramètres
     values.push(parseInt(id));
 
     const query = `
@@ -218,7 +235,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const result = await pool.query(query, values);
 
-    return NextResponse.json(result.rows[0]);
+    // Récupérer la transaction avec les infos de catégorie
+    const transactionWithCategory = await pool.query(
+      `SELECT 
+        t.*,
+        c.name as category_name,
+        c.icon as category_icon,
+        c.color as category_color
+      FROM transactions t
+      LEFT JOIN categories c ON t.category_id = c.id
+      WHERE t.id = $1`,
+      [parseInt(id)]
+    );
+
+    const transaction = {
+      ...transactionWithCategory.rows[0],
+      amount: parseFloat(transactionWithCategory.rows[0].amount)
+    };
+
+    return NextResponse.json(transaction);
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
@@ -237,12 +272,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const userId = await requireUserId();
 
-    // Récupérer la transaction pour vérifier les permissions
+    // Récupérer la transaction
     const existingResult = await pool.query(
-      `SELECT t.*, w.user_id as wallet_owner_id
-       FROM transactions t
-       JOIN wallets w ON t.wallet_id = w.id
-       WHERE t.id = $1`,
+      'SELECT * FROM transactions WHERE id = $1',
       [parseInt(id)]
     );
 
@@ -259,7 +291,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const hasAccess = await canWriteWallet(transaction.wallet_id, userId);
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'Accès refusé' },
+        { error: 'Permission insuffisante pour supprimer cette transaction' },
         { status: 403 }
       );
     }

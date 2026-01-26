@@ -18,9 +18,16 @@ interface Transaction {
   id: number;
   type: 'income' | 'outcome';
   amount: number;
-  description: string;
+  description: string | null;
   category: string | null;
+  category_id: number | null;
+  category_name?: string | null;
+  category_icon?: string | null;
+  category_color?: string | null;
   date: string;
+  is_recurring?: boolean;
+  recurrence_type?: string;
+  recurrence_end_date?: string | null;
 }
 
 interface PredictedTransaction {
