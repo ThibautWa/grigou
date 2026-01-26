@@ -1,3 +1,63 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* Animation pour le message de succès */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+/* Animation pour le passage en mode édition */
+@keyframes scale-in {
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+}
+
+/* Style pour rendre le solde plus interactif */
+.balance-interactive {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.balance-interactive:hover {
+    transform: scale(1.02);
+}
+
+.balance-interactive:active {
+    transform: scale(0.98);
+}
+
+/* Input de montant stylisé */
+input[type="number"].balance-input {
+    -moz-appearance: textfield;
+}
+
+input[type="number"].balance-input::-webkit-outer-spin-button,
+input[type="number"].balance-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
