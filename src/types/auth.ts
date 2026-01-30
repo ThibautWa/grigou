@@ -1,5 +1,3 @@
-// types/auth.ts
-
 export interface User {
   id: number;
   email: string;
@@ -68,7 +66,7 @@ export interface LoginFormData {
 declare module "next-auth" {
   interface Session {
     user: SessionUser;
-    accessToken: string;
+    accessToken?: string;
   }
 
   interface User {
@@ -79,11 +77,12 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
+// NextAuth v5 : Les types JWT sont gérés via les callbacks, pas via module augmentation
+declare module "@auth/core/jwt" {
   interface JWT {
-    userId: number;
-    email: string;
-    firstName: string;
-    lastName: string;
+    userId?: number;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
   }
 }
