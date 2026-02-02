@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
         wallet_id,
         type,
         amount,
-        description || null,  // Description optionnelle
+        description || null,
         category_id,
         date,
         is_recurring || false,

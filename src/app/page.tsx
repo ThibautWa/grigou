@@ -271,7 +271,7 @@ export default function Home() {
                     : 'bg-white text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  📅 Période
+                  📅 Périodique
                 </button>
                 <button
                   onClick={() => setViewMode('prediction')}
@@ -367,7 +367,7 @@ export default function Home() {
             {displayedMonthlyStats && viewMode !== 'current' && (
               <>
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  📅 {viewMode === 'prediction' ? 'Prévisions du mois' : 'Période sélectionnée'}
+                  📅 {viewMode === 'prediction' ? 'Prédiction du mois' : 'Période sélectionnée'}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <StatsCard
@@ -399,19 +399,22 @@ export default function Home() {
             {stats && (
               <>
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  💰 Solde cumulé {viewMode === 'prediction' && 'prévisionnel'}
+                  💰 {viewMode === 'current' ? 'PorteFeuille actuel' :
+                    viewMode === 'prediction' ? 'Prédiction cumulé' :
+                      viewMode === 'period' ? 'Période cumulé' : 'N/A'
+                  }
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title="Revenus cumulés"
+                    title={viewMode !== 'prediction' ? "Revenus" : "Revenus cumulés"}
                     amount={stats.cumulativeIncome}
                     type="income"
                     icon="↗"
                   />
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title="Dépenses cumulées"
+                    title={viewMode !== 'prediction' ? "Dépenses" : "Dépenses cumulées"}
                     amount={stats.cumulativeOutcome}
                     type="outcome"
                     icon="↘"
@@ -425,7 +428,7 @@ export default function Home() {
                     : 'bg-red-50 border-red-200'
                     }`}>
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
+                      <h3 className="text-sm font-medium text-gray-600">{viewMode !== 'prediction' ? "Solde" : "Solde cumulé"}</h3>
                       <span className="text-2xl">💰</span>
                     </div>
 
@@ -455,6 +458,19 @@ export default function Home() {
                   🔮 Transactions Prédites
                 </h2>
                 <PredictedTransactions predictions={predictions} />
+              </div>
+            )}
+
+            {/* Transaction Form */}
+            {viewMode !== 'prediction' && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  📝 Ajouter une Transaction
+                </h2>
+                <TransactionForm
+                  onTransactionAdded={handleTransactionAdded}
+                  selectedWalletId={selectedWalletId!}
+                />
               </div>
             )}
 
