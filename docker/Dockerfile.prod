@@ -1,0 +1,83 @@
+# ==============================================================================
+# Dockerfile - Production - Grigou
+# ==============================================================================
+# Multi-stage build pour optimiser la taille de l'image
+# Compatible avec GitHub Actions CI/CD
+# ==============================================================================
+
+# ==============================================================================
+# Stage 1: Dependencies
+# ==============================================================================
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Installer les dépendances système
+RUN apk add --no-cache libc6-compat curl wget
+
+# Copier les fichiers de dépendances
+COPY package.json package-lock.json* ./
+
+# Installer les dépendances
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# ==============================================================================
+# Stage 2: Builder
+# ==============================================================================
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copier les node_modules du stage deps
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copier tout le code source
+COPY . .
+
+# Variables de build
+ARG NEXT_PUBLIC_APP_VERSION=latest
+ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+# Build Next.js avec standalone output
+RUN npm run build
+
+# ==============================================================================
+# Stage 3: Runner
+# ==============================================================================
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Créer un utilisateur non-root pour la sécurité
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Installer les outils nécessaires pour le health check
+RUN apk add --no-cache wget curl
+
+# Copier les fichiers nécessaires depuis le builder
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Variables d'environnement
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Passer à l'utilisateur non-root
+USER nextjs
+
+# Exposer le port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# Démarrer l'application
+CMD ["node", "server.js"]
