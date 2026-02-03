@@ -88,7 +88,8 @@ export default function Home() {
         fetchPredictions(),
       ]);
 
-      if (viewMode === 'prediction') {
+      // Fetch monthly stats for current and prediction modes
+      if (viewMode === 'prediction' || viewMode === 'current') {
         await fetchMonthlyStats();
       }
     } catch (error) {
@@ -143,15 +144,30 @@ export default function Home() {
   };
 
   const fetchMonthlyStats = async () => {
-    if (!selectedWalletId || viewMode !== 'prediction') return;
+    if (!selectedWalletId) return;
 
-    const predDate = new Date(predictionDate);
-    const monthStart = format(startOfMonth(predDate), 'yyyy-MM-dd');
-    const monthEnd = format(endOfMonth(predDate), 'yyyy-MM-dd');
+    let monthStart: string;
+    let monthEnd: string;
+    let includePredictions = false;
+
+    if (viewMode === 'prediction') {
+      const predDate = new Date(predictionDate);
+      monthStart = format(startOfMonth(predDate), 'yyyy-MM-dd');
+      monthEnd = format(endOfMonth(predDate), 'yyyy-MM-dd');
+      includePredictions = true;
+    } else if (viewMode === 'current') {
+      // Stats du mois en cours - AVEC les transactions récurrentes prévues
+      const today = new Date();
+      monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
+      monthEnd = format(endOfMonth(today), 'yyyy-MM-dd'); // Jusqu'à la fin du mois
+      includePredictions = true; // Inclure les transactions récurrentes du mois
+    } else {
+      return;
+    }
 
     try {
       const response = await fetch(
-        `/api/stats?walletId=${selectedWalletId}&startDate=${monthStart}&endDate=${monthEnd}&includePredictions=true`
+        `/api/stats?walletId=${selectedWalletId}&startDate=${monthStart}&endDate=${monthEnd}&includePredictions=${includePredictions}`
       );
       const data = await response.json();
       setMonthlyStats(data);
@@ -211,7 +227,7 @@ export default function Home() {
   };
 
   // Determine which stats to display for monthly section
-  const displayedMonthlyStats = viewMode === 'prediction' && monthlyStats ? monthlyStats : stats;
+  const displayedMonthlyStats = monthlyStats;
 
   if (!isInitialized) {
     return (
@@ -271,7 +287,7 @@ export default function Home() {
                     : 'bg-white text-gray-700 hover:bg-gray-100'
                     }`}
                 >
-                  📅 Périodique
+                  📅 Période
                 </button>
                 <button
                   onClick={() => setViewMode('prediction')}
@@ -363,11 +379,15 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* Monthly Stats Cards (Period) */}
-            {displayedMonthlyStats && viewMode !== 'current' && (
+            {/* Monthly Stats Cards - Affichées pour current, period et prediction */}
+            {displayedMonthlyStats && (
               <>
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  📅 {viewMode === 'prediction' ? 'Prédiction du mois' : 'Période sélectionnée'}
+                  📅 {viewMode === 'current'
+                    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})`
+                    : viewMode === 'prediction'
+                      ? 'Prévisions du mois'
+                      : 'Période sélectionnée'}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <StatsCard
@@ -399,22 +419,19 @@ export default function Home() {
             {stats && (
               <>
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  💰 {viewMode === 'current' ? 'PorteFeuille actuel' :
-                    viewMode === 'prediction' ? 'Prédiction cumulé' :
-                      viewMode === 'period' ? 'Période cumulé' : 'N/A'
-                  }
+                  💰 Solde cumulé {viewMode === 'prediction' && 'prévisionnel'}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title={viewMode !== 'prediction' ? "Revenus" : "Revenus cumulés"}
+                    title="Revenus cumulés"
                     amount={stats.cumulativeIncome}
                     type="income"
                     icon="↗"
                   />
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title={viewMode !== 'prediction' ? "Dépenses" : "Dépenses cumulées"}
+                    title="Dépenses cumulées"
                     amount={stats.cumulativeOutcome}
                     type="outcome"
                     icon="↘"
@@ -428,7 +445,7 @@ export default function Home() {
                     : 'bg-red-50 border-red-200'
                     }`}>
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">{viewMode !== 'prediction' ? "Solde" : "Solde cumulé"}</h3>
+                      <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
                       <span className="text-2xl">💰</span>
                     </div>
 
@@ -458,19 +475,6 @@ export default function Home() {
                   🔮 Transactions Prédites
                 </h2>
                 <PredictedTransactions predictions={predictions} />
-              </div>
-            )}
-
-            {/* Transaction Form */}
-            {viewMode !== 'prediction' && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  📝 Ajouter une Transaction
-                </h2>
-                <TransactionForm
-                  onTransactionAdded={handleTransactionAdded}
-                  selectedWalletId={selectedWalletId!}
-                />
               </div>
             )}
 
