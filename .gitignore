@@ -3,3 +3,13 @@ package-lock.json
 .env
 .env.local
 .next
+certbot/conf/accounts/acme-v02.api.letsencrypt.org/directory/5310ef6d81324a86934a62de7d0456ae/meta.json
+certbot/conf/accounts/acme-v02.api.letsencrypt.org/directory/5310ef6d81324a86934a62de7d0456ae/private_key.json
+certbot/conf/accounts/acme-v02.api.letsencrypt.org/directory/5310ef6d81324a86934a62de7d0456ae/regr.json
+certbot/conf/archive/grigou.fr/cert1.pem
+certbot/conf/archive/grigou.fr/chain1.pem
+certbot/conf/archive/grigou.fr/fullchain1.pem
+certbot/conf/archive/grigou.fr/privkey1.pem
+certbot/conf/accounts/
+certbot/conf/archive/
+
