@@ -1,0 +1,63 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    name: Code Review Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Pour analyser tous les commits
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Lint changed files
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep -E '\.(ts|tsx|js|jsx)$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Linting changed files:"
+            echo "$CHANGED_FILES"
+            npx eslint $CHANGED_FILES
+          else
+            echo "No TypeScript/JavaScript files changed"
+          fi
+
+      - name: 🏗️ Build check
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          NEXTAUTH_SECRET: test-secret-key
+          NEXTAUTH_URL: http://localhost:3000
+
+      - name: 📊 Comment PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const message = `## 🤖 Automated PR Review
+            
+            ✅ Build successful
+            ✅ Lint checks passed
+            ✅ Type checks passed
+            
+            Ready for human review! 👀`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });

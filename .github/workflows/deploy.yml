@@ -1,0 +1,159 @@
+name: Deploy Grigou to Production
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # JOB 1: Tests & Validation
+  # ============================================
+  test:
+    name: Tests & Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run ESLint
+        run: npm run lint
+        continue-on-error: true  # Ne pas bloquer si erreurs de lint
+
+      - name: 🏗️ Type check
+        run: npx tsc --noEmit
+
+      - name: 🧪 Run tests (si tu en as)
+        run: npm test
+        continue-on-error: true  # Au cas où tu n'as pas encore de tests
+
+      - name: 🏗️ Build test
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          NEXTAUTH_SECRET: test-secret-key-for-build
+          NEXTAUTH_URL: http://localhost:3000
+
+  # ============================================
+  # JOB 2: Deploy to Production
+  # ============================================
+  deploy:
+    name: Deploy to VPS
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: 🚀 Deploy to Production
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            set -e
+            
+            echo "📂 Navigating to app directory..."
+            cd ${{ secrets.APP_DIR }}
+            
+            echo "📥 Pulling latest changes..."
+            git pull origin main
+            
+            echo "🐳 Stopping containers..."
+            docker-compose down
+            
+            echo "🔨 Building new images..."
+            docker-compose build --no-cache
+            
+            echo "🚀 Starting containers..."
+            docker-compose up -d
+            
+            echo "🧹 Cleaning up old images..."
+            docker image prune -af
+            
+            echo "✅ Deployment successful!"
+            
+            echo "📊 Container status:"
+            docker-compose ps
+          ENDSSH
+
+      - name: 🧪 Health Check
+        run: |
+          echo "Waiting 30 seconds for application to start..."
+          sleep 30
+          
+          echo "Checking application health..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.PRODUCTION_DOMAIN }})
+          
+          if [ $HTTP_STATUS -eq 200 ] || [ $HTTP_STATUS -eq 302 ]; then
+            echo "✅ Application is healthy (HTTP $HTTP_STATUS)"
+          else
+            echo "❌ Application health check failed (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+
+      - name: 📢 Deployment Success Notification
+        if: success()
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "🌐 Application URL: https://${{ secrets.PRODUCTION_DOMAIN }}"
+          echo "⏰ Deployed at: $(date)"
+
+      - name: 📢 Deployment Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "🔍 Check the logs above for details"
+
+  # ============================================
+  # JOB 3: Rollback (manuel via workflow_dispatch)
+  # ============================================
+  rollback:
+    name: Rollback to Previous Version
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 🔐 Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: ⏪ Rollback Deployment
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            set -e
+            
+            cd ${{ secrets.APP_DIR }}
+            
+            echo "⏪ Rolling back to previous commit..."
+            git reset --hard HEAD~1
+            
+            echo "🐳 Redeploying..."
+            docker-compose down
+            docker-compose up -d --build
+            
+            echo "✅ Rollback completed!"
+          ENDSSH

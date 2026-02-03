@@ -1,0 +1,28 @@
+name: Manual Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      commits:
+        description: 'Number of commits to rollback'
+        required: true
+        default: '1'
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rollback
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << ENDSSH
+            cd ${{ secrets.APP_DIR }}
+            git reset --hard HEAD~${{ github.event.inputs.commits }}
+            docker-compose up -d --build
+          ENDSSH
