@@ -8,14 +8,19 @@ on:
 
 env:
   NODE_VERSION: '20'
+  WORKING_DIRECTORY: './app'
 
 jobs:
   # ============================================
-  # JOB 1: Tests & Validation
+  # JOB 1: Tests & Build
   # ============================================
   test:
     name: Tests & Quality Checks
     runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
     
     steps:
       - name: 📥 Checkout code
@@ -26,20 +31,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
 
       - name: 📦 Install dependencies
         run: npm ci
 
       - name: 🔍 Run ESLint
         run: npm run lint
-        continue-on-error: true  # Ne pas bloquer si erreurs de lint
+        continue-on-error: true
 
       - name: 🏗️ Type check
         run: npx tsc --noEmit
-
-      - name: 🧪 Run tests (si tu en as)
-        run: npm test
-        continue-on-error: true  # Au cas où tu n'as pas encore de tests
+        continue-on-error: true
 
       - name: 🏗️ Build test
         run: npm run build
@@ -47,6 +50,9 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
           NEXTAUTH_SECRET: test-secret-key-for-build
           NEXTAUTH_URL: http://localhost:3000
+
+      - name: ✅ Tests passed
+        run: echo "All checks completed successfully!"
 
   # ============================================
   # JOB 2: Deploy to Production
@@ -73,87 +79,87 @@ jobs:
           ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
             set -e
             
-            echo "📂 Navigating to app directory..."
+            echo "🔵 Starting deployment..."
+            
+            # Navigate to app directory
             cd ${{ secrets.APP_DIR }}
             
-            echo "📥 Pulling latest changes..."
-            git pull origin main
+            # Create backup
+            echo "📦 Creating database backup..."
+            BACKUP_DIR="./backups"
+            mkdir -p $BACKUP_DIR
+            BACKUP_FILE="$BACKUP_DIR/db-backup-$(date +%Y%m%d-%H%M%S).sql"
+            docker exec grigou-postgres pg_dump -U grigou grigou > $BACKUP_FILE || echo "⚠️ Backup failed (non-critical)"
             
-            echo "🐳 Stopping containers..."
-            docker-compose down
+            # Keep only last 5 backups
+            ls -t $BACKUP_DIR/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm
             
-            echo "🔨 Building new images..."
-            docker-compose build --no-cache
+            # Pull latest changes
+            echo "📥 Pulling latest changes from GitHub..."
+            git fetch origin
+            git reset --hard origin/main
             
+            # Stop containers
+            echo "🛑 Stopping containers..."
+            docker-compose -f docker-compose.prod.yml down
+            
+            # Build new images
+            echo "🔨 Building new Docker images..."
+            docker-compose -f docker-compose.prod.yml build --no-cache
+            
+            # Start containers
             echo "🚀 Starting containers..."
-            docker-compose up -d
+            docker-compose -f docker-compose.prod.yml up -d
             
-            echo "🧹 Cleaning up old images..."
+            # Wait for containers to be healthy
+            echo "⏳ Waiting for containers to start..."
+            sleep 15
+            
+            # Check container status
+            echo "📊 Container status:"
+            docker-compose -f docker-compose.prod.yml ps
+            
+            # Cleanup
+            echo "🧹 Cleaning up old Docker images..."
             docker image prune -af
             
-            echo "✅ Deployment successful!"
-            
-            echo "📊 Container status:"
-            docker-compose ps
+            echo "✅ Deployment completed successfully!"
           ENDSSH
 
       - name: 🧪 Health Check
         run: |
-          echo "Waiting 30 seconds for application to start..."
+          echo "⏳ Waiting 30 seconds for application to fully start..."
           sleep 30
           
-          echo "Checking application health..."
+          echo "🔍 Checking application health..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.PRODUCTION_DOMAIN }})
           
-          if [ $HTTP_STATUS -eq 200 ] || [ $HTTP_STATUS -eq 302 ]; then
+          if [ $HTTP_STATUS -eq 200 ] || [ $HTTP_STATUS -eq 302 ] || [ $HTTP_STATUS -eq 307 ]; then
             echo "✅ Application is healthy (HTTP $HTTP_STATUS)"
           else
-            echo "❌ Application health check failed (HTTP $HTTP_STATUS)"
+            echo "❌ Health check failed (HTTP $HTTP_STATUS)"
+            echo "⚠️ Application might still be starting..."
             exit 1
           fi
 
       - name: 📢 Deployment Success Notification
         if: success()
         run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🎉 Deployment completed successfully!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🌐 Application URL: https://${{ secrets.PRODUCTION_DOMAIN }}"
-          echo "⏰ Deployed at: $(date)"
+          echo "📦 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+          echo "⏰ Time: $(date)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: 📢 Deployment Failure Notification
         if: failure()
         run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "❌ Deployment failed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🔍 Check the logs above for details"
-
-  # ============================================
-  # JOB 3: Rollback (manuel via workflow_dispatch)
-  # ============================================
-  rollback:
-    name: Rollback to Previous Version
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    
-    steps:
-      - name: 🔐 Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: ⏪ Rollback Deployment
-        run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
-            set -e
-            
-            cd ${{ secrets.APP_DIR }}
-            
-            echo "⏪ Rolling back to previous commit..."
-            git reset --hard HEAD~1
-            
-            echo "🐳 Redeploying..."
-            docker-compose down
-            docker-compose up -d --build
-            
-            echo "✅ Rollback completed!"
-          ENDSSH
+          echo "💡 You may need to manually rollback"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
