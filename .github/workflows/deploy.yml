@@ -90,23 +90,38 @@ jobs:
             APP_DIR="${{ secrets.APP_DIR }}"
             BACKUP_DIR="$APP_DIR/backups"
             
-            # Navigate to app directory
             cd $APP_DIR
+            
+            # Load environment variables
+            if [ -f .env.production ]; then
+              export $(cat .env.production | grep -v '^#' | grep -v '^$' | xargs)
+              echo "✅ Environment variables loaded"
+            fi
             
             # Create backup
             echo "📦 Creating database backup..."
             mkdir -p $BACKUP_DIR
             BACKUP_FILE="$BACKUP_DIR/db-backup-$(date +%Y%m%d-%H%M%S).sql"
-            docker exec grigou_db pg_dump -U grigou_user grigou_db > $BACKUP_FILE || echo "⚠️ Backup failed (non-critical)"
+            
+            echo "   Database: ${POSTGRES_DB}"
+            echo "   User: ${POSTGRES_USER}"
+            
+            docker exec grigou_db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" > "$BACKUP_FILE" 2>&1 || echo "⚠️ Backup failed (non-critical)"
+            
+            if [ -f "$BACKUP_FILE" ] && [ -s "$BACKUP_FILE" ]; then
+              echo "✅ Backup created: $(basename $BACKUP_FILE) ($(du -h $BACKUP_FILE | cut -f1))"
+            else
+              echo "⚠️ Backup file is empty or missing"
+            fi
             
             # Keep only last 5 backups
             ls -t $BACKUP_DIR/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm || true
-            echo "✅ Backup completed"
             
             # Pull latest changes
             echo "📥 Pulling latest changes from GitHub..."
             git fetch origin
             git reset --hard origin/main
+            echo "✅ Code updated to latest commit: $(git rev-parse --short HEAD)"
             
             # Stop containers
             echo "🛑 Stopping containers..."
@@ -121,12 +136,20 @@ jobs:
             docker-compose -f docker-compose.prod.yml up -d
             
             # Wait for containers to be healthy
-            echo "⏳ Waiting for containers to start (20s)..."
-            sleep 20
+            echo "⏳ Waiting for containers to start (30s)..."
+            sleep 30
             
             # Check container status
             echo "📊 Container status:"
             docker-compose -f docker-compose.prod.yml ps
+            
+            # Check if app is responding
+            echo "🔍 Checking application health..."
+            if docker exec grigou_app curl -f http://localhost:3000/api/health 2>/dev/null; then
+              echo "✅ Application is responding"
+            else
+              echo "⚠️ Application health check failed (container might still be starting)"
+            fi
             
             # Cleanup old images
             echo "🧹 Cleaning up old Docker images..."
@@ -139,8 +162,8 @@ jobs:
 
       - name: 🧪 Health Check
         run: |
-          echo "⏳ Waiting 30 seconds for application to fully start..."
-          sleep 30
+          echo "⏳ Waiting 10 seconds before health check..."
+          sleep 10
           
           echo "🔍 Checking application health..."
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.PRODUCTION_DOMAIN }}/api/health || echo "000")
@@ -151,9 +174,7 @@ jobs:
             echo "✅ Application is healthy (HTTP $HTTP_STATUS)"
           else
             echo "⚠️ Health check returned HTTP $HTTP_STATUS"
-            echo "Application might still be starting or health endpoint may need configuration"
-            # Don't fail the deployment for health check issues
-            # exit 1
+            echo "This is not critical - application might still be starting"
           fi
 
       - name: 📢 Deployment Success
@@ -181,7 +202,7 @@ jobs:
           echo "🔍 Check the logs above for details"
           echo "💡 You may need to:"
           echo "   - Check Docker logs: docker-compose -f docker-compose.prod.yml logs"
-          echo "   - Verify environment variables"
+          echo "   - Verify environment variables in .env.production"
           echo "   - Check disk space: df -h"
           echo "   - Review database backup in /opt/app/grigou/backups/"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
