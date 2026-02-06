@@ -3,26 +3,59 @@ name: Manual Rollback
 on:
   workflow_dispatch:
     inputs:
-      commits:
+      commits_back:
         description: 'Number of commits to rollback'
         required: true
         default: '1'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '5'
 
 jobs:
   rollback:
+    name: Rollback Deployment
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Setup SSH
+      - name: 🔐 Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Rollback
+      - name: ⏪ Rollback to Previous Version
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << ENDSSH
-            cd ${{ secrets.APP_DIR }}
-            git reset --hard HEAD~${{ github.event.inputs.commits }}
-            docker-compose up -d --build
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+            set -e
+            
+            APP_DIR="${{ secrets.APP_DIR }}"
+            COMMITS_BACK="${{ github.event.inputs.commits_back }}"
+            
+            cd $APP_DIR
+            
+            echo "⏪ Rolling back $COMMITS_BACK commit(s)..."
+            git reset --hard HEAD~$COMMITS_BACK
+            
+            echo "🐳 Redeploying..."
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml build --no-cache
+            docker-compose -f docker-compose.prod.yml up -d
+            
+            sleep 15
+            
+            echo "📊 Container status:"
+            docker-compose -f docker-compose.prod.yml ps
+            
+            echo "✅ Rollback completed!"
           ENDSSH
+      
+      - name: 📢 Rollback Complete
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Rollback completed successfully!"
+          echo "⏪ Rolled back ${{ github.event.inputs.commits_back }} commit(s)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
