@@ -3,3 +3,21 @@ node_modules
 .bot
 ./certbot/*
 
+
+# Certbot generated files (should not be versioned)
+certbot/conf/accounts/
+certbot/conf/archive/
+certbot/conf/live/
+certbot/conf/renewal/
+certbot/conf/renewal-hooks/
+certbot/www/
+
+# Backups (should not be versioned)
+backups/
+
+# Logs
+logs/
+*.log
+
+# Docker volumes data
+nginx/logs/

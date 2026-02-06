@@ -15,20 +15,33 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${GREEN}🚀 Grigou Deployment Script${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
+cd $APP_DIR
+
+# Charger les variables d'environnement
+if [ -f .env.production ]; then
+  export $(cat .env.production | grep -v '^#' | grep -v '^$' | xargs)
+  echo -e "${GREEN}✅ Environment variables loaded${NC}"
+fi
+
 # Créer un backup de la base de données
 echo -e "${YELLOW}📦 Creating database backup...${NC}"
 mkdir -p $BACKUP_DIR
 BACKUP_FILE="$BACKUP_DIR/db-backup-$(date +%Y%m%d-%H%M%S).sql"
 
-# Utiliser le bon nom de container
-docker exec grigou_db pg_dump -U ${POSTGRES_USER:-grigou_user} ${POSTGRES_DB:-grigou_db} > $BACKUP_FILE || echo "⚠️ Backup failed"
-echo -e "${GREEN}✅ Backup created: $BACKUP_FILE${NC}"
+echo -e "   Database: ${POSTGRES_DB}"
+echo -e "   User: ${POSTGRES_USER}"
+
+docker exec grigou_db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" > "$BACKUP_FILE" || echo "⚠️ Backup failed"
+
+if [ -f "$BACKUP_FILE" ] && [ -s "$BACKUP_FILE" ]; then
+  echo -e "${GREEN}✅ Backup created: $(basename $BACKUP_FILE) ($(du -h $BACKUP_FILE | cut -f1))${NC}"
+else
+  echo -e "${RED}❌ Backup file is empty or missing${NC}"
+fi
 
 # Garder seulement les 5 derniers backups
 ls -t $BACKUP_DIR/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm
 echo -e "${GREEN}🧹 Old backups cleaned${NC}"
-
-cd $APP_DIR
 
 # Pull latest changes
 echo -e "${YELLOW}📥 Pulling latest changes...${NC}"
@@ -42,7 +55,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 # Wait for containers to be healthy
 echo -e "${YELLOW}⏳ Waiting for containers to be healthy...${NC}"
-sleep 15
+sleep 20
 
 # Check health
 if docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
@@ -53,7 +66,7 @@ else
     echo -e "${YELLOW}🔄 Rolling back...${NC}"
     
     # Restore from backup
-    docker exec -i grigou_db psql -U ${POSTGRES_USER:-grigou_user} ${POSTGRES_DB:-grigou_db} < $BACKUP_FILE
+    docker exec -i grigou_db psql -U "${POSTGRES_USER}" "${POSTGRES_DB}" < "$BACKUP_FILE"
     
     exit 1
 fi
