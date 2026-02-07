@@ -488,7 +488,7 @@ export default function Home() {
             )}
 
             {/* Transaction Form */}
-            {viewMode !== 'prediction' && (
+            {viewMode === 'current' && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-4">
                   📝 Ajouter une Transaction

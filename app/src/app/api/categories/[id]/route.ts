@@ -70,7 +70,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Vérifier que la catégorie appartient à l'utilisateur
-        if (category.user_id !== userId) {
+        if (Number(category.user_id) !== Number(userId)) {
             return NextResponse.json(
                 { error: 'Accès refusé' },
                 { status: 403 }
@@ -209,12 +209,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         // Vérifier que la catégorie appartient à l'utilisateur
-        if (category.user_id !== userId) {
+        if (Number(category.user_id) !== Number(userId)) {
             return NextResponse.json(
                 { error: 'Accès refusé' },
                 { status: 403 }
             );
         }
+
+
 
         // Vérifier si des transactions utilisent cette catégorie
         const transactionCheck = await pool.query(

@@ -9,6 +9,148 @@ interface CategoryManagerProps {
   initialType?: 'income' | 'outcome';
 }
 
+interface CategoryFormProps {
+  isEdit?: boolean;
+  formData: {
+    name: string;
+    type: 'income' | 'outcome' | 'both';
+    icon: string;
+    color: string;
+  };
+  onFormDataChange: (data: {
+    name: string;
+    type: 'income' | 'outcome' | 'both';
+    icon: string;
+    color: string;
+  }) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}
+
+// Composant CategoryForm extrait pour éviter la recréation à chaque rendu
+function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, onCancel }: CategoryFormProps) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      {/* Nom */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Nom de la catégorie *
+        </label>
+        <input
+          type="text"
+          required
+          value={formData.name}
+          onChange={(e) => onFormDataChange({ ...formData, name: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Ex: Épargne, Courses bio..."
+        />
+      </div>
+
+      {/* Type */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Type de transaction
+        </label>
+        <div className="flex gap-2">
+          {(['outcome', 'income', 'both'] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, type })}
+              className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${formData.type === type
+                  ? type === 'outcome'
+                    ? 'border-red-500 bg-red-50 text-red-700'
+                    : type === 'income'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300'
+                }`}
+            >
+              {CATEGORY_TYPE_LABELS[type]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Icône */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Icône
+        </label>
+        <div className="flex flex-wrap gap-1 p-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+          {CATEGORY_ICONS.map((icon) => (
+            <button
+              key={icon}
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, icon })}
+              className={`w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors ${formData.icon === icon ? 'bg-blue-100 ring-2 ring-blue-500' : ''
+                }`}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Couleur */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Couleur
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, color })}
+              className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${formData.color === color ? 'ring-2 ring-offset-2 ring-blue-500' : ''
+                }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Aperçu */}
+      <div className="p-3 bg-gray-50 rounded-lg">
+        <p className="text-sm text-gray-600 mb-2">Aperçu :</p>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-8 h-8 flex items-center justify-center rounded"
+            style={{ backgroundColor: formData.color + '20' }}
+          >
+            {formData.icon}
+          </span>
+          <span className="font-medium">{formData.name || 'Nom de la catégorie'}</span>
+          <span className={`text-xs px-2 py-0.5 rounded ${formData.type === 'outcome' ? 'bg-red-100 text-red-700' :
+              formData.type === 'income' ? 'bg-green-100 text-green-700' :
+                'bg-blue-100 text-blue-700'
+            }`}>
+            {CATEGORY_TYPE_LABELS[formData.type]}
+          </span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        >
+          {isEdit ? 'Enregistrer' : 'Créer'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function CategoryManager({
   onClose,
   onCategoriesChanged,
@@ -93,7 +235,7 @@ export default function CategoryManager({
         setSuccess('Catégorie créée avec succès');
         setTimeout(() => setSuccess(''), 3000);
         onCategoriesChanged?.();
-        
+
         // Rafraîchir le sélecteur de catégories
         // @ts-ignore
         if (window.refreshCategorySelector) {
@@ -123,7 +265,7 @@ export default function CategoryManager({
 
       if (response.ok) {
         const updatedCategory = await response.json();
-        setCategories(categories.map(c => 
+        setCategories(categories.map(c =>
           c.id === updatedCategory.id ? updatedCategory : c
         ));
         setEditingCategory(null);
@@ -131,7 +273,7 @@ export default function CategoryManager({
         setSuccess('Catégorie mise à jour');
         setTimeout(() => setSuccess(''), 3000);
         onCategoriesChanged?.();
-        
+
         // @ts-ignore
         if (window.refreshCategorySelector) {
           // @ts-ignore
@@ -166,7 +308,7 @@ export default function CategoryManager({
         setSuccess('Catégorie supprimée');
         setTimeout(() => setSuccess(''), 3000);
         onCategoriesChanged?.();
-        
+
         // @ts-ignore
         if (window.refreshCategorySelector) {
           // @ts-ignore
@@ -192,140 +334,21 @@ export default function CategoryManager({
     setShowAddForm(false);
   };
 
-  const filteredCategories = categories.filter(c => 
+  const filteredCategories = categories.filter(c =>
     c.type === activeTab || c.type === 'both'
   );
 
   const systemCategories = filteredCategories.filter(c => c.is_system);
   const userCategories = filteredCategories.filter(c => !c.is_system);
 
-  const CategoryForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <form onSubmit={isEdit ? handleUpdate : handleCreate} className="space-y-4">
-      {/* Nom */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Nom de la catégorie *
-        </label>
-        <input
-          type="text"
-          required
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Ex: Épargne, Courses bio..."
-        />
-      </div>
-
-      {/* Type */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Type de transaction
-        </label>
-        <div className="flex gap-2">
-          {(['outcome', 'income', 'both'] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setFormData({ ...formData, type })}
-              className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
-                formData.type === type
-                  ? type === 'outcome'
-                    ? 'border-red-500 bg-red-50 text-red-700'
-                    : type === 'income'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {CATEGORY_TYPE_LABELS[type]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Icône */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Icône
-        </label>
-        <div className="flex flex-wrap gap-1 p-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
-          {CATEGORY_ICONS.map((icon) => (
-            <button
-              key={icon}
-              type="button"
-              onClick={() => setFormData({ ...formData, icon })}
-              className={`w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors ${
-                formData.icon === icon ? 'bg-blue-100 ring-2 ring-blue-500' : ''
-              }`}
-            >
-              {icon}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Couleur */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Couleur
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_COLORS.map((color) => (
-            <button
-              key={color}
-              type="button"
-              onClick={() => setFormData({ ...formData, color })}
-              className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${
-                formData.color === color ? 'ring-2 ring-offset-2 ring-blue-500' : ''
-              }`}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Aperçu */}
-      <div className="p-3 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600 mb-2">Aperçu :</p>
-        <div className="flex items-center gap-2">
-          <span
-            className="w-8 h-8 flex items-center justify-center rounded"
-            style={{ backgroundColor: formData.color + '20' }}
-          >
-            {formData.icon}
-          </span>
-          <span className="font-medium">{formData.name || 'Nom de la catégorie'}</span>
-          <span className={`text-xs px-2 py-0.5 rounded ${
-            formData.type === 'outcome' ? 'bg-red-100 text-red-700' :
-            formData.type === 'income' ? 'bg-green-100 text-green-700' :
-            'bg-blue-100 text-blue-700'
-          }`}>
-            {CATEGORY_TYPE_LABELS[formData.type]}
-          </span>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            isEdit ? setEditingCategory(null) : setShowAddForm(false);
-            resetForm();
-          }}
-          className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-        >
-          Annuler
-        </button>
-        <button
-          type="submit"
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-        >
-          {isEdit ? 'Enregistrer' : 'Créer'}
-        </button>
-      </div>
-    </form>
-  );
+  const handleFormCancel = () => {
+    if (editingCategory) {
+      setEditingCategory(null);
+    } else {
+      setShowAddForm(false);
+    }
+    resetForm();
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -353,21 +376,19 @@ export default function CategoryManager({
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('outcome')}
-              className={`pb-3 px-1 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === 'outcome'
+              className={`pb-3 px-1 font-medium text-sm border-b-2 transition-colors ${activeTab === 'outcome'
                   ? 'border-red-500 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Dépenses
             </button>
             <button
               onClick={() => setActiveTab('income')}
-              className={`pb-3 px-1 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === 'income'
+              className={`pb-3 px-1 font-medium text-sm border-b-2 transition-colors ${activeTab === 'income'
                   ? 'border-green-500 text-green-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               Revenus
             </button>
@@ -394,7 +415,13 @@ export default function CategoryManager({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
               </h3>
-              <CategoryForm isEdit={!!editingCategory} />
+              <CategoryForm
+                isEdit={!!editingCategory}
+                formData={formData}
+                onFormDataChange={setFormData}
+                onSubmit={editingCategory ? handleUpdate : handleCreate}
+                onCancel={handleFormCancel}
+              />
             </div>
           )}
 
