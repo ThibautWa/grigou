@@ -1,7 +1,8 @@
 // lib/auth/index.ts
 
 // Export des fonctions d'authentification NextAuth
-export { auth, signIn, signOut, GET, POST } from './auth';
+// Note: GET et POST sont dans handlers, pas exportés séparément
+export { auth, signIn, signOut, handlers } from './auth';
 
 // Export des fonctions de session
 export {

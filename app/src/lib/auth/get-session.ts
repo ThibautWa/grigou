@@ -9,6 +9,22 @@ export async function getSession() {
 }
 
 /**
+ * Récupère la session de l'utilisateur actuel côté serveur
+ * À utiliser dans les Server Components et les Route Handlers
+ */
+export async function getServerSession() {
+  const session = await auth();
+
+  if (!session?.user) {
+    return null;
+  }
+
+  return {
+    user: session.user,
+  };
+}
+
+/**
  * Récupère l'ID de l'utilisateur connecté
  * Lance une erreur UNAUTHORIZED si l'utilisateur n'est pas connecté
  */
@@ -51,4 +67,12 @@ export async function requireUser() {
   }
 
   return session.user;
+}
+
+/**
+ * Vérifie si l'utilisateur est authentifié
+ */
+export async function isAuthenticated(): Promise<boolean> {
+  const session = await getServerSession();
+  return !!session?.user;
 }
