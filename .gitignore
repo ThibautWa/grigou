@@ -1,23 +1,55 @@
-node_modules
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+.vercel
+.netlify
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Environment variables
 .env
-.bot
-./certbot/*
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
 
+# Vercel
+.vercel
 
-# Certbot generated files (should not be versioned)
-certbot/conf/accounts/
-certbot/conf/archive/
-certbot/conf/live/
-certbot/conf/renewal/
-certbot/conf/renewal-hooks/
-certbot/www/
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
-# Backups (should not be versioned)
-backups/
+# OS
+.DS_Store
+*.pem
+Thumbs.db
 
-# Logs
-logs/
-*.log
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Docker volumes data
-nginx/logs/
+# Turbopack
+.turbo/

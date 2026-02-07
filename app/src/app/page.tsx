@@ -249,9 +249,9 @@ export default function Home() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3">
-            <Image 
-              src="/logo.png" 
-              alt="Grigou Logo" 
+            <Image
+              src="/logo.png"
+              alt="Grigou Logo"
               width={48}
               height={48}
               className="object-contain"
@@ -392,11 +392,11 @@ export default function Home() {
             {displayedMonthlyStats && (
               <>
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  📅 {viewMode === 'current' 
-                    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})` 
-                    : viewMode === 'prediction' 
-                    ? 'Prévisions du mois' 
-                    : 'Période sélectionnée'}
+                  📅 {viewMode === 'current'
+                    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})`
+                    : viewMode === 'prediction'
+                      ? 'Prévisions du mois'
+                      : 'Période sélectionnée'}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <StatsCard
@@ -484,6 +484,19 @@ export default function Home() {
                   🔮 Transactions Prédites
                 </h2>
                 <PredictedTransactions predictions={predictions} />
+              </div>
+            )}
+
+            {/* Transaction Form */}
+            {viewMode !== 'prediction' && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  📝 Ajouter une Transaction
+                </h2>
+                <TransactionForm
+                  onTransactionAdded={handleTransactionAdded}
+                  selectedWalletId={selectedWalletId!}
+                />
               </div>
             )}
 
