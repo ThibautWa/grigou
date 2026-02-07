@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import ProfileModal from './ProfilModal';
-import ChangePasswordModal from './ChangePassordModal';
+import ChangePasswordModal from './ChangePasswordModal';
 
 export default function UserMenu() {
   const { data: session, status } = useSession();

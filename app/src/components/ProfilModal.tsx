@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface ProfileModalProps {
     onClose: () => void;
@@ -10,6 +11,7 @@ interface ProfileModalProps {
 
 export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) {
     const { data: session, update: updateSession } = useSession();
+    const router = useRouter();
 
     const [formData, setFormData] = useState({
         firstName: '',
@@ -82,27 +84,29 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                 throw new Error(data.error || 'Erreur lors de la mise à jour');
             }
 
-            // Mettre à jour la session NextAuth
+            setSuccess('Profil mis à jour avec succès');
+
+            // CORRECTION : Mettre à jour la session NextAuth avec les nouvelles données
             await updateSession({
-                ...session,
                 user: {
                     ...session?.user,
                     firstName: data.user.firstName,
                     lastName: data.user.lastName,
                     email: data.user.email,
+                    name: `${data.user.firstName} ${data.user.lastName}`, // Important pour NextAuth
                 },
             });
 
-            setSuccess('Profil mis à jour avec succès');
-
+            // Appeler le callback si fourni
             if (onUpdated) {
                 onUpdated();
             }
 
-            // Fermer après un court délai
+            // Forcer le rafraîchissement de la page après un court délai
             setTimeout(() => {
+                router.refresh(); // Rafraîchit les Server Components
                 onClose();
-            }, 1500);
+            }, 1000);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Une erreur est survenue');
         } finally {
