@@ -19,7 +19,7 @@ cd $APP_DIR
 
 # Charger les variables d'environnement
 if [ -f .env.production ]; then
-  export $(cat .env.production | grep -v '^#' | grep -v '^$' | xargs)
+  source .env.production
   echo -e "${GREEN}✅ Environment variables loaded${NC}"
 fi
 
@@ -47,20 +47,20 @@ echo -e "${GREEN}🧹 Old backups cleaned${NC}"
 echo -e "${YELLOW}📥 Pulling latest changes...${NC}"
 git pull origin main
 
-# Deploy avec docker-compose.prod.yml
+# Deploy avec docker compose (V2)
 echo -e "${YELLOW}🐳 Deploying containers...${NC}"
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml build --no-cache
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml up -d
 
 # Wait for containers to be healthy
 echo -e "${YELLOW}⏳ Waiting for containers to be healthy...${NC}"
 sleep 20
 
 # Check health
-if docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
+if docker compose -f docker-compose.prod.yml ps | grep -q "Up"; then
     echo -e "${GREEN}✅ Deployment successful!${NC}"
-    docker-compose -f docker-compose.prod.yml ps
+    docker compose -f docker-compose.prod.yml ps
 else
     echo -e "${RED}❌ Deployment failed!${NC}"
     echo -e "${YELLOW}🔄 Rolling back...${NC}"

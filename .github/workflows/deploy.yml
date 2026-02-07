@@ -52,10 +52,7 @@ jobs:
           NEXTAUTH_URL: http://localhost:3000
 
       - name: ✅ Tests completed
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ All checks completed!"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        run: echo "✅ All checks completed!"
 
   # ============================================
   # JOB 2: Deploy to Production VPS
@@ -79,7 +76,7 @@ jobs:
 
       - name: 🚀 Deploy to Production
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
             set -e
             
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -90,65 +87,73 @@ jobs:
             APP_DIR="${{ secrets.APP_DIR }}"
             BACKUP_DIR="$APP_DIR/backups"
             
-            cd $APP_DIR
+            cd "$APP_DIR"
             
-            # Load environment variables
-            if [ -f .env.production ]; then
-              export $(cat .env.production | grep -v '^#' | grep -v '^$' | xargs)
-              echo "✅ Environment variables loaded"
-            fi
-            
-            # Create backup
-            echo "📦 Creating database backup..."
-            mkdir -p $BACKUP_DIR
-            BACKUP_FILE="$BACKUP_DIR/db-backup-$(date +%Y%m%d-%H%M%S).sql"
+            # Charger les variables d'environnement proprement
+            echo "📋 Loading environment variables..."
+            source .env.production
             
             echo "   Database: ${POSTGRES_DB}"
             echo "   User: ${POSTGRES_USER}"
             
-            docker exec grigou_db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" > "$BACKUP_FILE" 2>&1 || echo "⚠️ Backup failed (non-critical)"
+            # Create backup
+            echo "📦 Creating database backup..."
+            mkdir -p "$BACKUP_DIR"
+            BACKUP_FILE="$BACKUP_DIR/db-backup-$(date +%Y%m%d-%H%M%S).sql"
             
-            if [ -f "$BACKUP_FILE" ] && [ -s "$BACKUP_FILE" ]; then
-              echo "✅ Backup created: $(basename $BACKUP_FILE) ($(du -h $BACKUP_FILE | cut -f1))"
+            # Backup avec les variables chargées
+            if docker exec grigou_db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" > "$BACKUP_FILE" 2>&1; then
+              echo "✅ Backup created: $(basename "$BACKUP_FILE") ($(du -h "$BACKUP_FILE" | cut -f1))"
             else
-              echo "⚠️ Backup file is empty or missing"
+              echo "⚠️ Backup failed (non-critical)"
             fi
             
             # Keep only last 5 backups
-            ls -t $BACKUP_DIR/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm || true
+            ls -t "$BACKUP_DIR"/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm || true
+            
+            # Ensure Git is using HTTPS
+            echo "🔧 Configuring Git..."
+            CURRENT_URL=$(git remote get-url origin)
+            if [[ "$CURRENT_URL" == git@github.com:* ]]; then
+              echo "   Converting SSH URL to HTTPS..."
+              NEW_URL=$(echo "$CURRENT_URL" | sed 's|git@github.com:|https://github.com/|' | sed 's|\.git$||')
+              git remote set-url origin "${NEW_URL}.git"
+              echo "   New URL: $(git remote get-url origin)"
+            fi
             
             # Pull latest changes
             echo "📥 Pulling latest changes from GitHub..."
             git fetch origin
             git reset --hard origin/main
-            echo "✅ Code updated to latest commit: $(git rev-parse --short HEAD)"
+            CURRENT_COMMIT=$(git rev-parse --short HEAD)
+            echo "✅ Code updated to commit: $CURRENT_COMMIT"
             
-            # Stop containers
+            # Stop containers - UTILISER docker compose (V2)
             echo "🛑 Stopping containers..."
-            docker-compose -f docker-compose.prod.yml down || true
+            docker compose -f docker-compose.prod.yml down || true
             
-            # Build new images
+            # Build new images - UTILISER docker compose (V2)
             echo "🔨 Building new Docker images..."
-            docker-compose -f docker-compose.prod.yml build --no-cache
+            docker compose -f docker-compose.prod.yml build --no-cache
             
-            # Start containers
+            # Start containers - UTILISER docker compose (V2)
             echo "🚀 Starting containers..."
-            docker-compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d
             
             # Wait for containers to be healthy
             echo "⏳ Waiting for containers to start (30s)..."
             sleep 30
             
-            # Check container status
+            # Check container status - UTILISER docker compose (V2)
             echo "📊 Container status:"
-            docker-compose -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml ps
             
             # Check if app is responding
             echo "🔍 Checking application health..."
             if docker exec grigou_app curl -f http://localhost:3000/api/health 2>/dev/null; then
               echo "✅ Application is responding"
             else
-              echo "⚠️ Application health check failed (container might still be starting)"
+              echo "⚠️ Application health check failed (might still be starting)"
             fi
             
             # Cleanup old images
@@ -190,7 +195,6 @@ jobs:
           echo "🌿 Branch: ${{ github.ref_name }}"
           echo "⏰ Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
 
       - name: 📢 Deployment Failure
         if: failure()
@@ -200,10 +204,4 @@ jobs:
           echo "❌ Deployment failed!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🔍 Check the logs above for details"
-          echo "💡 You may need to:"
-          echo "   - Check Docker logs: docker-compose -f docker-compose.prod.yml logs"
-          echo "   - Verify environment variables in .env.production"
-          echo "   - Check disk space: df -h"
-          echo "   - Review database backup in /opt/app/grigou/backups/"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
