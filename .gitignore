@@ -13,8 +13,8 @@ build/
 dist/
 
 # Production
-.vercel
-.netlify
+backups/
+certbot/
 
 # Debug logs
 npm-debug.log*
