@@ -166,6 +166,14 @@ function LoginForm() {
             S'inscrire
           </Link>
         </p>
+        <p className="text-center text-gray-600">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Mot de passe oublié ?
+          </Link>
+        </p>
       </div>
     </div>
   );

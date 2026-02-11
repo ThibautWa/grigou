@@ -50,3 +50,10 @@ export {
   verifyPassword,
   validatePasswordStrength,
 } from './password';
+
+// Export du service de réinitialisation de mot de passe
+export {
+  requestPasswordReset,
+  validateResetToken,
+  resetPasswordWithToken,
+} from './password-reset-service';

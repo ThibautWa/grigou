@@ -12,11 +12,14 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname === '/' || nextUrl.pathname.startsWith('/api/');
-      const isAuthPage = nextUrl.pathname === '/login' || nextUrl.pathname === '/register';
+      const isAuthPage = nextUrl.pathname === '/login'
+        || nextUrl.pathname === '/register'
+        || nextUrl.pathname === '/forgot-password'
+        || nextUrl.pathname === '/reset-password';
 
       // Routes API publiques
       const publicApiRoutes = ['/api/auth'];
-      const isPublicApiRoute = publicApiRoutes.some(route => 
+      const isPublicApiRoute = publicApiRoutes.some(route =>
         nextUrl.pathname.startsWith(route)
       );
 
