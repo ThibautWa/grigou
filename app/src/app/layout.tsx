@@ -1,10 +1,25 @@
 import type { Metadata } from 'next';
+import { DM_Sans, Playfair_Display } from 'next/font/google';
 import './globals.css';
+import './grigou-dark-theme.css';
+import './grigou-fonts.css';
 import Providers from '@/components/Providers';
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+});
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Grigou - Gestionnaire de Budget',
-  description: 'Le gestionnaire de budget populaire, simple et gratuit',
+  description: 'Application de gestion de budget personnel — gratuite, simple, sécurisée.',
 };
 
 export default function RootLayout({
@@ -13,16 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700;800&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="bg-gray-50">
+    <html lang="fr" className={`${dmSans.variable} ${playfair.variable}`}>
+      <body>
         <Providers>
           {children}
         </Providers>
