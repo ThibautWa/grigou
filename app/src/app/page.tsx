@@ -1,535 +1,318 @@
-'use client';
+// app/page.tsx — Landing page publique
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import './landing.css';
 
-import { useState, useEffect } from 'react';
-import { format, subMonths, addMonths, isFuture, startOfMonth, endOfMonth } from 'date-fns';
-import Image from 'next/image';
-import { fr } from 'date-fns/locale';
-import TransactionForm from '@/components/TransactionForm';
-import TransactionList, { Transaction } from '@/components/TransactionList';
-import BudgetChart from '@/components/BudgetChart';
-import StatsCard from '@/components/StatsCard';
-import PredictedTransactions from '@/components/PredictedTransactions';
-import WalletSelector from '@/components/WalletSelector';
-import WalletManager from '@/components/WalletManager';
-import UserMenu from '@/components/UserMenu';
-import InvitationsList from '@/components/InvitationsList';
-import BalanceAdjuster from '@/components/BalanceAdjuster';
-import { useWallet } from '@/hooks/useWallet';
+export default async function LandingPage() {
+    const session = await auth();
 
-interface PredictedTransaction {
-  id: string;
-  type: 'income' | 'outcome';
-  amount: number;
-  description: string;
-  category: string | null;
-  date: string;
-  is_predicted: boolean;
-  original_transaction_id: number;
-}
-
-interface Stats {
-  totalIncome: number;
-  totalOutcome: number;
-  balance: number;
-  cumulativeIncome: number;
-  cumulativeOutcome: number;
-  cumulativeBalance: number;
-  monthlyData: Array<{
-    month: string;
-    income: number;
-    outcome: number;
-    balance: number;
-    cumulative: number;
-    predicted_income?: number;
-    predicted_outcome?: number;
-  }>;
-}
-
-type ViewMode = 'current' | 'period' | 'prediction';
-
-export default function Home() {
-  const { selectedWalletId, selectWallet, isInitialized } = useWallet();
-
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [predictions, setPredictions] = useState<PredictedTransaction[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [monthlyStats, setMonthlyStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showWalletManager, setShowWalletManager] = useState(false);
-
-  // View mode: 'current' (default), 'period', or 'prediction'
-  const [viewMode, setViewMode] = useState<ViewMode>('current');
-
-  // Date range for period mode
-  const [dateRange, setDateRange] = useState({
-    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    end: format(new Date(), 'yyyy-MM-dd'),
-  });
-
-  // Single date for prediction mode
-  const [predictionDate, setPredictionDate] = useState(
-    format(addMonths(new Date(), 1), 'yyyy-MM-dd')
-  );
-
-  // Fetch data when wallet changes or dates change
-  useEffect(() => {
-    if (selectedWalletId && isInitialized) {
-      fetchData();
-    }
-  }, [selectedWalletId, isInitialized, viewMode, dateRange, predictionDate]);
-
-  const fetchData = async () => {
-    if (!selectedWalletId) return;
-
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchTransactions(),
-        fetchStats(),
-        fetchPredictions(),
-      ]);
-
-      // Fetch monthly stats for current and prediction modes
-      if (viewMode === 'prediction' || viewMode === 'current') {
-        await fetchMonthlyStats();
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    if (!selectedWalletId) return;
-
-    let url = `/api/transactions?walletId=${selectedWalletId}`;
-
-    if (viewMode === 'period') {
-      url += `&startDate=${dateRange.start}&endDate=${dateRange.end}`;
-    } else if (viewMode === 'current') {
-      // Current view: all transactions up to today
-      url += `&endDate=${format(new Date(), 'yyyy-MM-dd')}`;
+    // Si déjà connecté, rediriger vers le dashboard
+    if (session?.user) {
+        redirect('/dashboard');
     }
 
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    if (!selectedWalletId) return;
-
-    let url = `/api/stats?walletId=${selectedWalletId}`;
-
-    if (viewMode === 'period') {
-      url += `&startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=false`;
-    } else if (viewMode === 'prediction') {
-      url += `&endDate=${predictionDate}&includePredictions=true`;
-    } else {
-      // Current view: up to today
-      url += `&endDate=${format(new Date(), 'yyyy-MM-dd')}&includePredictions=false`;
-    }
-
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setStats(data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
-
-  const fetchMonthlyStats = async () => {
-    if (!selectedWalletId) return;
-
-    let monthStart: string;
-    let monthEnd: string;
-    let includePredictions = false;
-
-    if (viewMode === 'prediction') {
-      const predDate = new Date(predictionDate);
-      monthStart = format(startOfMonth(predDate), 'yyyy-MM-dd');
-      monthEnd = format(endOfMonth(predDate), 'yyyy-MM-dd');
-      includePredictions = true;
-    } else if (viewMode === 'current') {
-      // Stats du mois en cours - AVEC les transactions récurrentes prévues
-      const today = new Date();
-      monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
-      monthEnd = format(endOfMonth(today), 'yyyy-MM-dd'); // Jusqu'à la fin du mois
-      includePredictions = true; // Inclure les transactions récurrentes du mois
-    } else {
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/stats?walletId=${selectedWalletId}&startDate=${monthStart}&endDate=${monthEnd}&includePredictions=${includePredictions}`
-      );
-      const data = await response.json();
-      setMonthlyStats(data);
-    } catch (error) {
-      console.error('Error fetching monthly stats:', error);
-    }
-  };
-
-  const fetchPredictions = async () => {
-    if (!selectedWalletId) return;
-
-    if (viewMode !== 'prediction') {
-      setPredictions([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/predictions?walletId=${selectedWalletId}&startDate=${format(new Date(), 'yyyy-MM-dd')}&endDate=${predictionDate}`
-      );
-      const data = await response.json();
-      setPredictions(data);
-    } catch (error) {
-      console.error('Error fetching predictions:', error);
-    }
-  };
-
-  const handleTransactionAdded = () => {
-    fetchData();
-  };
-
-  const handleTransactionDeleted = () => {
-    fetchData();
-  };
-
-  const handleInvitationAccepted = (walletId: number) => {
-    // @ts-ignore
-    if (window.refreshWalletSelector) {
-      // @ts-ignore
-      window.refreshWalletSelector();
-    }
-    selectWallet(walletId);
-  };
-
-  const adjustDateRange = (months: number) => {
-    const newStart = addMonths(new Date(dateRange.start), months);
-    const newEnd = addMonths(new Date(dateRange.end), months);
-    setDateRange({
-      start: format(newStart, 'yyyy-MM-dd'),
-      end: format(newEnd, 'yyyy-MM-dd'),
-    });
-  };
-
-  const adjustPredictionDate = (months: number) => {
-    const newDate = addMonths(new Date(predictionDate), months);
-    setPredictionDate(format(newDate, 'yyyy-MM-dd'));
-  };
-
-  // Determine which stats to display for monthly section
-  const displayedMonthlyStats = monthlyStats;
-
-  if (!isInitialized) {
     return (
-      <main className="min-h-screen p-4 md:p-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-center h-64">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-            <span className="text-lg text-gray-600">Chargement...</span>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen p-4 md:p-8 bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-          <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="Grigou Logo"
-              width={48}
-              height={48}
-              className="object-contain"
-              priority
-            />
-            Grigou - Gestionnaire de Budget
-          </h1>
-
-          <div className="flex items-center gap-4">
-            <WalletSelector
-              selectedWalletId={selectedWalletId}
-              onWalletChange={selectWallet}
-              onManageWallets={() => setShowWalletManager(true)}
-            />
-            <UserMenu />
-          </div>
-        </div>
-
-        {/* Invitations en attente */}
-        <InvitationsList onInvitationAccepted={handleInvitationAccepted} />
-
-        {/* View Mode Controls */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-4 justify-between">
-            {/* Mode Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Mode :</span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-300">
-                <button
-                  onClick={() => setViewMode('current')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'current'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  📍 Vue actuelle
-                </button>
-                <button
-                  onClick={() => setViewMode('period')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'period'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  📅 Période
-                </button>
-                <button
-                  onClick={() => setViewMode('prediction')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'prediction'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  🔮 Prédiction
-                </button>
-              </div>
+        <div className="landing">
+            {/* FLOATING AUTH */}
+            <div className="floating-auth">
+                <Link href="/login" className="float-login">Se connecter</Link>
+                <Link href="/register" className="float-signup">Créer un compte</Link>
             </div>
 
-            {/* Date Controls based on mode */}
-            {viewMode === 'period' && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <label className="text-sm font-medium text-gray-700">Du:</label>
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
-                />
-                <span className="text-gray-500">au</span>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
-                />
-                <div className="flex gap-1 ml-2">
-                  <button
-                    onClick={() => adjustDateRange(-1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    ← Mois
-                  </button>
-                  <button
-                    onClick={() => adjustDateRange(1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    Mois →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {viewMode === 'prediction' && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <label className="text-sm font-medium text-gray-700">Prédiction au :</label>
-                <input
-                  type="date"
-                  value={predictionDate}
-                  onChange={(e) => setPredictionDate(e.target.value)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
-                />
-                <div className="flex gap-1 ml-2">
-                  <button
-                    onClick={() => adjustPredictionDate(-1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    ← Mois
-                  </button>
-                  <button
-                    onClick={() => adjustPredictionDate(1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    Mois →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {viewMode === 'current' && (
-              <div className="text-sm text-gray-600">
-                📍 Solde au {format(new Date(), 'dd MMMM yyyy', { locale: fr })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-              <span className="text-lg text-gray-600">Chargement des données...</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Monthly Stats Cards - Affichées pour current, period et prediction */}
-            {displayedMonthlyStats && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  📅 {viewMode === 'current'
-                    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})`
-                    : viewMode === 'prediction'
-                      ? 'Prévisions du mois'
-                      : 'Période sélectionnée'}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? "Revenus du mois" : "Revenus"}
-                    amount={displayedMonthlyStats.totalIncome}
-                    type="income"
-                    icon="↗"
-                  />
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? "Dépenses du mois" : "Dépenses"}
-                    amount={displayedMonthlyStats.totalOutcome}
-                    type="outcome"
-                    icon="↘"
-                  />
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? "Solde du mois" : "Solde"}
-                    amount={displayedMonthlyStats.balance}
-                    type={displayedMonthlyStats.balance >= 0 ? 'income' : 'outcome'}
-                    icon="="
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Cumulative Balance Card - Always shown */}
-            {stats && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  💰 Solde cumulé {viewMode === 'prediction' && 'prévisionnel'}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title="Revenus cumulés"
-                    amount={stats.cumulativeIncome}
-                    type="income"
-                    icon="↗"
-                  />
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title="Dépenses cumulées"
-                    amount={stats.cumulativeOutcome}
-                    type="outcome"
-                    icon="↘"
-                  />
-
-                  {/* ========================================= */}
-                  {/* CARTE SOLDE CUMULÉ AVEC AJUSTEMENT       */}
-                  {/* ========================================= */}
-                  <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0
-                    ? 'bg-blue-50 border-blue-200'
-                    : 'bg-red-50 border-red-200'
-                    }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
-                      <span className="text-2xl">💰</span>
+            {/* HERO */}
+            <section className="hero">
+                <div className="particles-bg" />
+                <div className="hero-content">
+                    <div className="hero-badge">
+                        <span className="dot" />
+                        100% gratuit &bull; Open source
                     </div>
-
-                    {viewMode === 'current' ? (
-                      /* Mode "Vue actuelle" : Solde cliquable pour ajustement */
-                      <BalanceAdjuster
-                        walletId={selectedWalletId!}
-                        currentBalance={stats.cumulativeBalance}
-                        onBalanceAdjusted={fetchData}
-                      />
-                    ) : (
-                      /* Modes "Période" ou "Prédiction" : Affichage simple */
-                      <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'
-                        }`}>
-                        {stats.cumulativeBalance.toFixed(2)} €
-                      </p>
-                    )}
-                  </div>
+                    <h1>
+                        Reprenez le contrôle de votre <span className="highlight">budget</span>
+                    </h1>
+                    <p className="hero-tagline">Le gestionnaire de budget populaire, simple et gratuit</p>
+                    <p className="hero-subtitle">
+                        Suivez vos dépenses, anticipez vos finances et partagez vos portefeuilles — sans jamais connecter votre banque.
+                    </p>
+                    <div className="hero-actions">
+                        <Link href="/register" className="btn-cta btn-cta-large">
+                            Commencer gratuitement
+                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                        </Link>
+                        <a href="#preview" className="btn-secondary">Voir l&apos;aperçu</a>
+                    </div>
+                    <div className="hero-stats">
+                        <div className="hero-stat">
+                            <div className="hero-stat-value">∞</div>
+                            <div className="hero-stat-label">Portefeuilles</div>
+                        </div>
+                        <div className="hero-stat">
+                            <div className="hero-stat-value">100%</div>
+                            <div className="hero-stat-label">Privé &amp; sécurisé</div>
+                        </div>
+                        <div className="hero-stat">
+                            <div className="hero-stat-value">0€</div>
+                            <div className="hero-stat-label">Toujours gratuit</div>
+                        </div>
+                    </div>
                 </div>
-              </>
-            )}
+            </section>
 
-            {/* Predicted Transactions */}
-            {predictions.length > 0 && viewMode === 'prediction' && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  🔮 Transactions Prédites
-                </h2>
-                <PredictedTransactions predictions={predictions} />
-              </div>
-            )}
+            {/* FEATURES */}
+            <section id="features">
+                <div className="section-center">
+                    <span className="section-label">Fonctionnalités</span>
+                    <h2 className="section-title">Tout ce qu&apos;il faut pour<br />maîtriser vos finances</h2>
+                    <p className="section-desc">
+                        Une suite complète d&apos;outils financiers, conçue pour être simple à utiliser et puissante dans les détails.
+                    </p>
+                    <div className="features-grid">
+                        <div className="feature-card">
+                            <div className="feature-icon">💼</div>
+                            <h3>Multi-portefeuilles</h3>
+                            <p>Gérez autant de portefeuilles que nécessaire : compte courant, épargne, budget vacances, projets... chacun avec son propre solde et historique.</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">📊</div>
+                            <h3>Statistiques en temps réel</h3>
+                            <p>Visualisez vos revenus, dépenses et solde cumulé mois par mois grâce à des graphiques interactifs et des indicateurs clairs.</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">🔄</div>
+                            <h3>Transactions récurrentes</h3>
+                            <p>Enregistrez vos charges fixes — loyer, abonnements, salaire — et laissez Grigou prédire automatiquement votre budget futur.</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">🏷️</div>
+                            <h3>Catégories personnalisées</h3>
+                            <p>Créez vos propres catégories avec icônes et couleurs, ou utilisez les catégories système. Classez chaque dépense à votre façon.</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">👥</div>
+                            <h3>Partage de portefeuilles</h3>
+                            <p>Invitez votre partenaire ou colocataire à collaborer avec des droits granulaires : lecture, écriture ou administration complète.</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">🔮</div>
+                            <h3>Prévisions budgétaires</h3>
+                            <p>Projetez votre solde dans le futur grâce aux transactions récurrentes. Anticipez les mois difficiles avant qu&apos;ils n&apos;arrivent.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-            {/* Transaction Form */}
-            {viewMode === 'current' && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  📝 Ajouter une Transaction
-                </h2>
-                <TransactionForm
-                  onTransactionAdded={handleTransactionAdded}
-                  selectedWalletId={selectedWalletId!}
-                />
-              </div>
-            )}
+            {/* APP PREVIEW */}
+            <section id="preview" className="preview-section">
+                <div className="section-center">
+                    <div style={{ textAlign: 'center' }}>
+                        <span className="section-label">Aperçu</span>
+                        <h2 className="section-title" style={{ maxWidth: 600, margin: '0 auto 0.5rem' }}>Une interface pensée pour la clarté</h2>
+                        <p className="section-desc" style={{ maxWidth: 520, margin: '0 auto' }}>
+                            Pas de superflu. Chaque écran va droit au but pour vous aider à comprendre votre situation financière en un coup d&apos;œil.
+                        </p>
+                    </div>
+                    <div className="preview-container">
+                        <div className="preview-toolbar">
+                            <span className="preview-dot red" />
+                            <span className="preview-dot yellow" />
+                            <span className="preview-dot green" />
+                            <span className="preview-url">grigou.app/dashboard</span>
+                        </div>
+                        <div className="preview-body">
+                            <div className="preview-sidebar">
+                                <div className="preview-sidebar-title">Portefeuilles</div>
+                                <div className="preview-wallet active">
+                                    <div className="preview-wallet-icon" style={{ background: 'var(--accent-glow)' }}>💳</div>
+                                    <div>
+                                        <div className="preview-wallet-name">Compte courant</div>
+                                        <div className="preview-wallet-balance">2 847,50 €</div>
+                                    </div>
+                                </div>
+                                <div className="preview-wallet">
+                                    <div className="preview-wallet-icon" style={{ background: 'rgba(139,92,246,0.1)' }}>🏦</div>
+                                    <div>
+                                        <div className="preview-wallet-name">Livret A</div>
+                                        <div className="preview-wallet-balance">12 400,00 €</div>
+                                    </div>
+                                </div>
+                                <div className="preview-wallet">
+                                    <div className="preview-wallet-icon" style={{ background: 'rgba(6,182,212,0.1)' }}>✈️</div>
+                                    <div>
+                                        <div className="preview-wallet-name">Vacances 2026</div>
+                                        <div className="preview-wallet-balance">850,00 €</div>
+                                    </div>
+                                </div>
+                                <div className="preview-wallet">
+                                    <div className="preview-wallet-icon" style={{ background: 'rgba(244,63,94,0.1)' }}>👥</div>
+                                    <div>
+                                        <div className="preview-wallet-name">Budget coloc</div>
+                                        <div className="preview-wallet-balance">420,75 €</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="preview-main">
+                                <div className="preview-header-row">
+                                    <div>
+                                        <div className="preview-balance-label">Solde actuel</div>
+                                        <div className="preview-balance-amount">2 847,50 €</div>
+                                        <div className="preview-balance-change">▲ +342,00 € ce mois</div>
+                                    </div>
+                                    <div className="btn-cta" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', pointerEvents: 'none' }}>+ Transaction</div>
+                                </div>
+                                <div className="preview-chart">
+                                    <svg viewBox="0 0 600 130" preserveAspectRatio="none">
+                                        <defs>
+                                            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="rgba(52,211,153,0.3)" />
+                                                <stop offset="100%" stopColor="rgba(52,211,153,0)" />
+                                            </linearGradient>
+                                        </defs>
+                                        <path d="M0,90 C50,85 100,70 150,75 C200,80 250,45 300,50 C350,55 400,30 450,35 C500,40 550,20 600,15 L600,130 L0,130 Z" fill="url(#cg)" />
+                                        <path d="M0,90 C50,85 100,70 150,75 C200,80 250,45 300,50 C350,55 400,30 450,35 C500,40 550,20 600,15" fill="none" stroke="var(--accent)" strokeWidth="2.5" />
+                                    </svg>
+                                </div>
+                                <div className="preview-tx-list">
+                                    <div className="preview-tx">
+                                        <div className="preview-tx-left">
+                                            <div className="preview-tx-icon">🛒</div>
+                                            <div>
+                                                <div className="preview-tx-name">Courses Carrefour</div>
+                                                <div className="preview-tx-cat">Alimentation</div>
+                                            </div>
+                                        </div>
+                                        <div className="preview-tx-amount expense">-67,30 €</div>
+                                    </div>
+                                    <div className="preview-tx">
+                                        <div className="preview-tx-left">
+                                            <div className="preview-tx-icon">💰</div>
+                                            <div>
+                                                <div className="preview-tx-name">Salaire Février</div>
+                                                <div className="preview-tx-cat">Revenus</div>
+                                            </div>
+                                        </div>
+                                        <div className="preview-tx-amount income">+2 450,00 €</div>
+                                    </div>
+                                    <div className="preview-tx">
+                                        <div className="preview-tx-left">
+                                            <div className="preview-tx-icon">🏠</div>
+                                            <div>
+                                                <div className="preview-tx-name">Loyer</div>
+                                                <div className="preview-tx-cat">Logement &bull; Récurrent</div>
+                                            </div>
+                                        </div>
+                                        <div className="preview-tx-amount expense">-750,00 €</div>
+                                    </div>
+                                    <div className="preview-tx">
+                                        <div className="preview-tx-left">
+                                            <div className="preview-tx-icon">🎬</div>
+                                            <div>
+                                                <div className="preview-tx-name">Netflix</div>
+                                                <div className="preview-tx-cat">Loisirs &bull; Récurrent</div>
+                                            </div>
+                                        </div>
+                                        <div className="preview-tx-amount expense">-15,49 €</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-            {/* Transaction List - Only in current and period mode */}
-            {viewMode !== 'prediction' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  📋 Historique des Transactions
-                </h2>
-                <TransactionList
-                  transactions={transactions}
-                  onTransactionDeleted={handleTransactionDeleted}
-                  onTransactionUpdated={handleTransactionDeleted}
-                />
-              </div>
-            )}
-          </>
-        )}
-      </div>
+            {/* HOW IT WORKS */}
+            <section id="how">
+                <div className="section-center">
+                    <div style={{ textAlign: 'center' }}>
+                        <span className="section-label">Comment ça marche</span>
+                        <h2 className="section-title">Opérationnel en 3 minutes</h2>
+                        <p className="section-desc" style={{ margin: '0 auto' }}>
+                            Pas de configuration complexe. Créez votre compte et commencez immédiatement.
+                        </p>
+                    </div>
+                    <div className="steps">
+                        <div className="step">
+                            <h3>Créez votre compte</h3>
+                            <p>Inscription rapide avec email. Votre premier portefeuille est créé automatiquement.</p>
+                        </div>
+                        <div className="step">
+                            <h3>Ajoutez vos transactions</h3>
+                            <p>Enregistrez vos revenus et dépenses manuellement. Configurez les récurrences pour automatiser les prévisions.</p>
+                        </div>
+                        <div className="step">
+                            <h3>Visualisez et anticipez</h3>
+                            <p>Consultez vos statistiques, analysez vos habitudes et projetez votre budget dans le futur.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-      {/* Wallet Manager Modal */}
-      {showWalletManager && (
-        <WalletManager
-          onClose={() => setShowWalletManager(false)}
-          onWalletCreated={() => {
-            // @ts-ignore
-            if (window.refreshWalletSelector) {
-              // @ts-ignore
-              window.refreshWalletSelector();
-            }
-          }}
-        />
-      )}
-    </main>
-  );
+            {/* HIGHLIGHTS */}
+            <section className="highlight-section">
+                <div className="section-center">
+                    <div className="highlight-grid">
+                        <div className="highlight-item">
+                            <h3>0 pub</h3>
+                            <p>Aucune publicité. Jamais.</p>
+                        </div>
+                        <div className="highlight-item">
+                            <h3>0 tracking</h3>
+                            <p>Vos données restent les vôtres</p>
+                        </div>
+                        <div className="highlight-item">
+                            <h3>HTTPS</h3>
+                            <p>Connexion chiffrée de bout en bout</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* CTA FINAL */}
+            <section className="cta-section">
+                <div className="section-center" style={{ position: 'relative', zIndex: 1 }}>
+                    <h2 className="section-title">Prêt à reprendre le contrôle de vos finances ?</h2>
+                    <p className="section-desc" style={{ maxWidth: 480, margin: '0 auto 2.5rem' }}>
+                        Rejoignez Grigou et commencez dès aujourd&apos;hui à mieux comprendre où va votre argent.
+                    </p>
+                    <div className="hero-actions">
+                        <Link href="/register" className="btn-cta btn-cta-large">
+                            Créer mon compte gratuitement
+                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                        </Link>
+                        <Link href="/login" className="btn-secondary">
+                            J&apos;ai déjà un compte
+                        </Link>
+                    </div>
+                    <ul className="cta-perks">
+                        <li>
+                            <span className="check">
+                                <svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                            </span>
+                            Inscription en 30 secondes
+                        </li>
+                        <li>
+                            <span className="check">
+                                <svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                            </span>
+                            Aucune carte bancaire requise
+                        </li>
+                        <li>
+                            <span className="check">
+                                <svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
+                            </span>
+                            Données hébergées en France
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            {/* FOOTER */}
+            <footer className="footer">
+                <div className="footer-inner">
+                    <div className="footer-logo">Grigou</div>
+                    <div className="footer-text">Gestionnaire de budget personnel — Hébergé en France</div>
+                </div>
+            </footer>
+        </div>
+    );
 }
