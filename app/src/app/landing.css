@@ -259,6 +259,13 @@
     margin-top: 0.25rem;
 }
 
+.hero-text {
+    color: var(--text-primary);
+    line-height: 1.7;
+    max-width: 600px;
+    margin: 3rem auto;
+}
+
 /* SECTIONS */
 .landing section {
     padding: 6rem 2rem;
@@ -609,7 +616,7 @@
 
 .highlight-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 2rem;
     text-align: center;
 }
@@ -627,6 +634,13 @@
 .highlight-item p {
     color: var(--text-secondary);
     font-size: 0.95rem;
+}
+
+.highlight-text {
+    color: var(--text-primary);
+    line-height: 1.7;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 /* CTA */

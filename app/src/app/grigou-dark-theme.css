@@ -1,0 +1,582 @@
+/*
+ * grigou-dark-theme.css
+ * =====================
+ * Couche d'inversion de thème : remappe toutes les classes Tailwind "light"
+ * vers la charte graphique Grigou (dark + accent emerald) quand elles
+ * se trouvent dans le scope .grigou-dark.
+ *
+ */
+
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+.grigou-dark {
+    --gd-bg: #0a0e17;
+    --gd-surface: #0f1420;
+    --gd-card: #111827;
+    --gd-card2: #1a2235;
+    --gd-card3: #1e293b;
+    --gd-border: rgba(148, 163, 184, 0.10);
+    --gd-border2: rgba(148, 163, 184, 0.18);
+    --gd-text: #f1f5f9;
+    --gd-text2: #94a3b8;
+    --gd-muted: #64748b;
+    --gd-accent: #34d399;
+    --gd-accent2: #06b6d4;
+    --gd-accent-glow: rgba(52, 211, 153, 0.15);
+    --gd-gradient: linear-gradient(135deg, #34d399, #06b6d4);
+    --gd-input-bg: rgba(255, 255, 255, 0.04);
+    --gd-hover: rgba(255, 255, 255, 0.04);
+
+    background: var(--gd-bg);
+    color: var(--gd-text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+}
+
+/* ============================================================
+   BACKGROUNDS
+   ============================================================ */
+.grigou-dark .bg-gray-50,
+.grigou-dark .bg-gray-100 {
+    background-color: var(--gd-surface) !important;
+}
+
+.grigou-dark .bg-white {
+    background-color: var(--gd-card) !important;
+}
+
+.grigou-dark .bg-gray-200 {
+    background-color: var(--gd-card2) !important;
+}
+
+.grigou-dark .bg-gray-300 {
+    background-color: var(--gd-card3) !important;
+}
+
+/* Hover backgrounds */
+.grigou-dark .hover\:bg-gray-50:hover,
+.grigou-dark .hover\:bg-gray-100:hover {
+    background-color: var(--gd-hover) !important;
+}
+
+.grigou-dark .hover\:bg-gray-200:hover {
+    background-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.grigou-dark .hover\:bg-gray-300:hover {
+    background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.grigou-dark .hover\:bg-white:hover {
+    background-color: var(--gd-card2) !important;
+}
+
+/* Color backgrounds */
+.grigou-dark .bg-blue-50,
+.grigou-dark .hover\:bg-blue-50:hover {
+    background-color: rgba(52, 211, 153, 0.08) !important;
+}
+
+.grigou-dark .bg-blue-100 {
+    background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+.grigou-dark .bg-green-50 {
+    background-color: rgba(52, 211, 153, 0.08) !important;
+}
+
+.grigou-dark .bg-green-100 {
+    background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+.grigou-dark .bg-red-50,
+.grigou-dark .hover\:bg-red-50:hover {
+    background-color: rgba(239, 68, 68, 0.08) !important;
+}
+
+.grigou-dark .bg-red-100 {
+    background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.grigou-dark .bg-yellow-50,
+.grigou-dark .bg-orange-50 {
+    background-color: rgba(234, 179, 8, 0.08) !important;
+}
+
+.grigou-dark .bg-purple-50,
+.grigou-dark .bg-purple-100 {
+    background-color: rgba(139, 92, 246, 0.10) !important;
+}
+
+.grigou-dark .bg-indigo-50,
+.grigou-dark .bg-indigo-100 {
+    background-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+/* Primary button gradient */
+.grigou-dark .bg-blue-600 {
+    background: var(--gd-gradient) !important;
+    color: #0a0e17 !important;
+    border: none !important;
+    box-shadow: 0 0 20px rgba(52, 211, 153, 0.12);
+}
+
+.grigou-dark .bg-blue-600:hover,
+.grigou-dark .hover\:bg-blue-700:hover {
+    background: var(--gd-gradient) !important;
+    box-shadow: 0 4px 24px rgba(52, 211, 153, 0.25) !important;
+    filter: brightness(1.1);
+}
+
+.grigou-dark .bg-green-500,
+.grigou-dark .bg-green-600 {
+    background-color: #059669 !important;
+}
+
+.grigou-dark .bg-red-600 {
+    background-color: #dc2626 !important;
+}
+
+.grigou-dark .hover\:bg-red-700:hover {
+    background-color: #b91c1c !important;
+}
+
+/* Gradient overrides */
+.grigou-dark [class*="from-blue-50"],
+.grigou-dark [class*="from-blue-50"][class*="to-indigo"] {
+    background: linear-gradient(to bottom right, rgba(52, 211, 153, 0.06), rgba(6, 182, 212, 0.04)) !important;
+}
+
+.grigou-dark [class*="from-red-50"],
+.grigou-dark [class*="from-red-50"][class*="to-orange"] {
+    background: linear-gradient(to bottom right, rgba(239, 68, 68, 0.06), rgba(249, 115, 22, 0.04)) !important;
+}
+
+/* Secondary / gray buttons */
+.grigou-dark button.bg-gray-200,
+.grigou-dark .bg-gray-200.text-gray-700 {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--gd-text2) !important;
+    border: 1px solid var(--gd-border2) !important;
+}
+
+/* White/alpha backgrounds */
+.grigou-dark .bg-white\/50,
+.grigou-dark .hover\:bg-white\/50:hover {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* ============================================================
+   TEXT COLORS
+   ============================================================ */
+.grigou-dark .text-gray-900 {
+    color: var(--gd-text) !important;
+}
+
+.grigou-dark .text-gray-800 {
+    color: #e2e8f0 !important;
+}
+
+.grigou-dark .text-gray-700 {
+    color: #cbd5e1 !important;
+}
+
+.grigou-dark .text-gray-600 {
+    color: var(--gd-text2) !important;
+}
+
+.grigou-dark .text-gray-500 {
+    color: var(--gd-muted) !important;
+}
+
+.grigou-dark .text-gray-400 {
+    color: #475569 !important;
+}
+
+.grigou-dark .hover\:text-gray-600:hover {
+    color: #cbd5e1 !important;
+}
+
+.grigou-dark .hover\:text-gray-700:hover {
+    color: #e2e8f0 !important;
+}
+
+.grigou-dark .hover\:text-gray-900:hover {
+    color: var(--gd-text) !important;
+}
+
+/* Blue → accent */
+.grigou-dark .text-blue-600 {
+    color: var(--gd-accent) !important;
+}
+
+.grigou-dark .text-blue-700 {
+    color: #2dd4bf !important;
+}
+
+.grigou-dark .text-blue-500 {
+    color: var(--gd-accent2) !important;
+}
+
+.grigou-dark .hover\:text-blue-600:hover,
+.grigou-dark .hover\:text-blue-700:hover {
+    color: #5eead4 !important;
+}
+
+.grigou-dark .text-green-600 {
+    color: #34d399 !important;
+}
+
+.grigou-dark .text-green-700 {
+    color: #6ee7b7 !important;
+}
+
+.grigou-dark .text-red-600 {
+    color: #f87171 !important;
+}
+
+.grigou-dark .text-red-700,
+.grigou-dark .text-red-500 {
+    color: #ef4444 !important;
+}
+
+.grigou-dark .text-purple-700 {
+    color: #c4b5fd !important;
+}
+
+.grigou-dark .text-yellow-600,
+.grigou-dark .text-yellow-700 {
+    color: #fbbf24 !important;
+}
+
+/* White text on gradient buttons → dark text */
+.grigou-dark .bg-blue-600 .text-white,
+.grigou-dark .bg-blue-600.text-white {
+    color: #0a0e17 !important;
+}
+
+/* ============================================================
+   BORDERS
+   ============================================================ */
+.grigou-dark .border-gray-100,
+.grigou-dark .border-gray-200 {
+    border-color: var(--gd-border) !important;
+}
+
+.grigou-dark .border-gray-300 {
+    border-color: var(--gd-border2) !important;
+}
+
+.grigou-dark .border-gray-400 {
+    border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+.grigou-dark .hover\:border-gray-400:hover {
+    border-color: rgba(148, 163, 184, 0.30) !important;
+}
+
+.grigou-dark .hover\:border-blue-300:hover {
+    border-color: rgba(52, 211, 153, 0.28) !important;
+}
+
+.grigou-dark .border-blue-200,
+.grigou-dark .border-blue-300 {
+    border-color: rgba(52, 211, 153, 0.20) !important;
+}
+
+.grigou-dark .border-blue-500 {
+    border-color: var(--gd-accent) !important;
+}
+
+.grigou-dark .border-green-200,
+.grigou-dark .border-green-300 {
+    border-color: rgba(52, 211, 153, 0.20) !important;
+}
+
+.grigou-dark .border-red-200,
+.grigou-dark .border-red-300 {
+    border-color: rgba(239, 68, 68, 0.20) !important;
+}
+
+.grigou-dark .border-yellow-200 {
+    border-color: rgba(234, 179, 8, 0.20) !important;
+}
+
+/* Soften heavy borders in dark theme */
+.grigou-dark .border-2 {
+    border-width: 1px !important;
+}
+
+.grigou-dark .border-t.border-gray-200\/50,
+.grigou-dark .divide-gray-200> :not([hidden])~ :not([hidden]) {
+    border-color: var(--gd-border) !important;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+.grigou-dark input:not([type="checkbox"]):not([type="radio"]),
+.grigou-dark select,
+.grigou-dark textarea {
+    background-color: var(--gd-input-bg) !important;
+    border-color: var(--gd-border2) !important;
+    color: var(--gd-text) !important;
+    border-radius: 10px;
+}
+
+.grigou-dark input::placeholder,
+.grigou-dark textarea::placeholder {
+    color: var(--gd-muted) !important;
+}
+
+.grigou-dark input:focus,
+.grigou-dark select:focus,
+.grigou-dark textarea:focus {
+    border-color: var(--gd-accent) !important;
+    box-shadow: 0 0 0 3px var(--gd-accent-glow) !important;
+    outline: none !important;
+}
+
+.grigou-dark select option {
+    background-color: var(--gd-card) !important;
+    color: var(--gd-text) !important;
+}
+
+.grigou-dark select optgroup {
+    background-color: var(--gd-card2) !important;
+    color: var(--gd-text2) !important;
+}
+
+.grigou-dark input[type="checkbox"] {
+    accent-color: var(--gd-accent);
+}
+
+/* ============================================================
+   FOCUS RINGS
+   ============================================================ */
+.grigou-dark .focus\:ring-blue-500:focus,
+.grigou-dark .focus\:ring-2:focus {
+    --tw-ring-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+.grigou-dark .focus\:ring-red-500:focus {
+    --tw-ring-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+.grigou-dark .focus\:border-transparent:focus {
+    border-color: var(--gd-accent) !important;
+}
+
+/* ============================================================
+   SHADOWS
+   ============================================================ */
+.grigou-dark .shadow-sm {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.grigou-dark .shadow-md {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.30) !important;
+}
+
+.grigou-dark .shadow-lg {
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35) !important;
+}
+
+.grigou-dark .shadow-xl {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.40) !important;
+}
+
+/* ============================================================
+   MODALS & OVERLAYS
+   ============================================================ */
+.grigou-dark .bg-black.bg-opacity-50,
+.grigou-dark [class*="bg-black"][class*="bg-opacity-50"] {
+    background-color: rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: blur(6px);
+}
+
+/* Modal cards */
+.grigou-dark .fixed .bg-white,
+.grigou-dark [class*="fixed inset-0"] .bg-white {
+    background-color: var(--gd-card) !important;
+    border: 1px solid var(--gd-border) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45), 0 0 80px rgba(52, 211, 153, 0.03) !important;
+}
+
+/* ============================================================
+   ROUNDED ELEMENTS — slightly rounder in dark theme
+   ============================================================ */
+.grigou-dark .rounded-lg {
+    border-radius: 12px !important;
+}
+
+.grigou-dark .rounded-md {
+    border-radius: 10px !important;
+}
+
+/* ============================================================
+   RECHARTS (Graphs)
+   ============================================================ */
+.grigou-dark .recharts-cartesian-grid line {
+    stroke: var(--gd-border) !important;
+}
+
+.grigou-dark .recharts-text {
+    fill: var(--gd-muted) !important;
+}
+
+.grigou-dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+    background-color: var(--gd-card2) !important;
+    border: 1px solid var(--gd-border2) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.grigou-dark .recharts-default-tooltip .recharts-tooltip-label {
+    color: var(--gd-text) !important;
+}
+
+.grigou-dark .recharts-default-tooltip .recharts-tooltip-item {
+    color: var(--gd-text2) !important;
+}
+
+.grigou-dark .recharts-legend-item-text {
+    color: var(--gd-text2) !important;
+}
+
+.grigou-dark .recharts-legend-icon {
+    border-radius: 3px;
+}
+
+/* ============================================================
+   LOADING & SKELETON
+   ============================================================ */
+.grigou-dark .animate-pulse {
+    background-color: var(--gd-card2) !important;
+}
+
+.grigou-dark .border-t-blue-500 {
+    border-top-color: var(--gd-accent) !important;
+}
+
+.grigou-dark .animate-spin {
+    color: var(--gd-accent);
+}
+
+/* ============================================================
+   BADGES & CHIPS
+   ============================================================ */
+.grigou-dark .bg-purple-100.text-purple-700 {
+    background-color: rgba(139, 92, 246, 0.12) !important;
+    color: #c4b5fd !important;
+}
+
+.grigou-dark .bg-blue-100.text-blue-700,
+.grigou-dark .bg-blue-100.text-blue-800 {
+    background-color: rgba(52, 211, 153, 0.12) !important;
+    color: #6ee7b7 !important;
+}
+
+.grigou-dark .bg-green-100.text-green-700 {
+    background-color: rgba(52, 211, 153, 0.12) !important;
+    color: #6ee7b7 !important;
+}
+
+.grigou-dark .bg-red-100.text-red-700 {
+    background-color: rgba(239, 68, 68, 0.12) !important;
+    color: #fca5a5 !important;
+}
+
+.grigou-dark .bg-yellow-100.text-yellow-700 {
+    background-color: rgba(234, 179, 8, 0.12) !important;
+    color: #fde68a !important;
+}
+
+/* User avatar on gradient */
+.grigou-dark .bg-blue-600.text-white:not(button) {
+    background: var(--gd-gradient) !important;
+    color: #0a0e17 !important;
+}
+
+/* ============================================================
+   NOTIFICATION BANNERS
+   ============================================================ */
+.grigou-dark [class*="bg-red-50"][class*="border-red"] {
+    background-color: rgba(239, 68, 68, 0.06) !important;
+    border-color: rgba(239, 68, 68, 0.18) !important;
+}
+
+.grigou-dark [class*="bg-green-50"][class*="border-green"] {
+    background-color: rgba(52, 211, 153, 0.06) !important;
+    border-color: rgba(52, 211, 153, 0.18) !important;
+}
+
+.grigou-dark [class*="bg-yellow-50"][class*="border-yellow"] {
+    background-color: rgba(234, 179, 8, 0.06) !important;
+    border-color: rgba(234, 179, 8, 0.18) !important;
+}
+
+.grigou-dark [class*="bg-blue-50"][class*="border-blue"] {
+    background-color: rgba(52, 211, 153, 0.06) !important;
+    border-color: rgba(52, 211, 153, 0.18) !important;
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+.grigou-dark h1,
+.grigou-dark h2,
+.grigou-dark h3,
+.grigou-dark h4 {
+    color: var(--gd-text);
+}
+
+.grigou-dark p {
+    color: var(--gd-text2);
+}
+
+.grigou-dark strong {
+    color: var(--gd-text);
+}
+
+.grigou-dark label {
+    color: var(--gd-text2) !important;
+}
+
+.grigou-dark a:not(.gd-no-style) {
+    color: var(--gd-accent);
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+.grigou-dark ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+.grigou-dark ::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grigou-dark ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.12);
+    border-radius: 3px;
+}
+
+.grigou-dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.22);
+}
+
+/* ============================================================
+   DISABLED STATES
+   ============================================================ */
+.grigou-dark .disabled\:opacity-50:disabled {
+    opacity: 0.35 !important;
+}
+
+.grigou-dark .disabled\:cursor-not-allowed:disabled {
+    cursor: not-allowed !important;
+}

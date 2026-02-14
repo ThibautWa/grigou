@@ -1,3 +1,4 @@
+// components/landing/LandingClient.tsx
 'use client';
 
 import { useState, useCallback } from 'react';
@@ -30,17 +31,13 @@ export default function LandingClient() {
             {/* HERO */}
             <section className="hero">
                 <div className="hero-content">
-                    <div className="hero-badge">
-                        <span className="dot" />
-                        100% gratuit &bull; Open source
-                    </div>
                     <h1>
-                        Reprenez le contrôle de votre <span className="highlight">budget</span>
+                        Le gestionnaire de budget <span className="highlight">populaire, simple et gratuit</span>
                     </h1>
-                    <p className="hero-tagline">Le gestionnaire de budget populaire, simple et gratuit</p>
-                    <p className="hero-subtitle">
-                        Suivez vos dépenses, anticipez vos finances et partagez vos portefeuilles — sans jamais connecter votre banque.
+                    <p className="hero-text">
+                        Suivez vos dépenses, anticipez vos finances et partagez vos portefeuilles sans avoir besoin de connecter votre banque.
                     </p>
+                    <p className="hero-tagline">Reprenez le contrôle de votre budget</p>
                     <div className="hero-actions">
                         <button className="btn-cta btn-cta-large" onClick={() => openModal('register')}>
                             Commencer gratuitement
@@ -50,7 +47,7 @@ export default function LandingClient() {
                     </div>
                     <div className="hero-stats">
                         <div className="hero-stat">
-                            <div className="hero-stat-value">∞</div>
+                            <div className="hero-stat-value">3</div>
                             <div className="hero-stat-label">Portefeuilles</div>
                         </div>
                         <div className="hero-stat">
@@ -59,14 +56,14 @@ export default function LandingClient() {
                         </div>
                         <div className="hero-stat">
                             <div className="hero-stat-value">0€</div>
-                            <div className="hero-stat-label">Toujours gratuit</div>
+                            <div className="hero-stat-label">gratuit</div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </div >
+            </section >
 
             {/* FEATURES */}
-            <section id="features">
+            < section id="features" >
                 <div className="section-center">
                     <span className="section-label">Fonctionnalités</span>
                     <h2 className="section-title">Tout ce qu&apos;il faut pour<br />maîtriser vos finances</h2>
@@ -87,17 +84,17 @@ export default function LandingClient() {
                         <div className="feature-card">
                             <div className="feature-icon">🔄</div>
                             <h3>Transactions récurrentes</h3>
-                            <p>Enregistrez vos charges fixes — loyer, abonnements, salaire — et laissez Grigou prédire automatiquement votre budget futur.</p>
+                            <p>Enregistrez vos charges fixes, loyer, abonnements, salaire, et laissez Grigou prédire automatiquement votre budget futur.</p>
                         </div>
                         <div className="feature-card">
                             <div className="feature-icon">🏷️</div>
                             <h3>Catégories personnalisées</h3>
-                            <p>Créez vos propres catégories avec icônes et couleurs, ou utilisez les catégories système. Classez chaque dépense à votre façon.</p>
+                            <p>Créez vos propres catégories avec icônes et couleurs. Classez chaque dépense à votre façon.</p>
                         </div>
                         <div className="feature-card">
                             <div className="feature-icon">👥</div>
                             <h3>Partage de portefeuilles</h3>
-                            <p>Invitez votre partenaire ou colocataire à collaborer avec des droits granulaires : lecture, écriture ou administration complète.</p>
+                            <p>Invitez vos proches à collaborer avec des droits accordé : consultation, modification ou administration complète.</p>
                         </div>
                         <div className="feature-card">
                             <div className="feature-icon">🔮</div>
@@ -106,16 +103,16 @@ export default function LandingClient() {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* APP PREVIEW */}
-            <section id="preview" className="preview-section">
+            < section id="preview" className="preview-section" >
                 <div className="section-center">
                     <div style={{ textAlign: 'center' }}>
                         <span className="section-label">Aperçu</span>
                         <h2 className="section-title" style={{ maxWidth: 600, margin: '0 auto 0.5rem' }}>Une interface pensée pour la clarté</h2>
                         <p className="section-desc" style={{ maxWidth: 520, margin: '0 auto' }}>
-                            Pas de superflu. Chaque écran va droit au but pour vous aider à comprendre votre situation financière en un coup d&apos;œil.
+                            Une interface simple pour vous aider à comprendre votre situation financière en un coup d&apos;œil.
                         </p>
                     </div>
                     <div className="preview-container">
@@ -188,14 +185,14 @@ export default function LandingClient() {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* HOW IT WORKS */}
-            <section id="how">
+            < section id="how" >
                 <div className="section-center">
                     <div style={{ textAlign: 'center' }}>
                         <span className="section-label">Comment ça marche</span>
-                        <h2 className="section-title">Opérationnel en 3 minutes</h2>
+                        <h2 className="section-title">Rapidement opérationnel</h2>
                         <p className="section-desc" style={{ margin: '0 auto' }}>
                             Pas de configuration complexe. Créez votre compte et commencez immédiatement.
                         </p>
@@ -206,21 +203,20 @@ export default function LandingClient() {
                         <div className="step"><h3>Visualisez et anticipez</h3><p>Consultez vos statistiques, analysez vos habitudes et projetez votre budget dans le futur.</p></div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* HIGHLIGHTS */}
-            <section className="highlight-section">
+            < section className="highlight-section" >
                 <div className="section-center">
                     <div className="highlight-grid">
-                        <div className="highlight-item"><h3>0 pub</h3><p>Aucune publicité. Jamais.</p></div>
+                        <div className="highlight-item"><h3>0 pub</h3><p>Aucune publicité</p></div>
                         <div className="highlight-item"><h3>0 tracking</h3><p>Vos données restent les vôtres</p></div>
-                        <div className="highlight-item"><h3>HTTPS</h3><p>Connexion chiffrée de bout en bout</p></div>
                     </div>
                 </div>
-            </section>
+            </section >
 
             {/* CTA FINAL */}
-            <section className="cta-section">
+            < section className="cta-section" >
                 <div className="section-center" style={{ position: 'relative', zIndex: 1 }}>
                     <h2 className="section-title">Prêt à reprendre le contrôle de vos finances ?</h2>
                     <p className="section-desc" style={{ maxWidth: 480, margin: '0 auto 2.5rem' }}>
@@ -238,7 +234,7 @@ export default function LandingClient() {
                     <ul className="cta-perks">
                         <li>
                             <span className="check"><svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg></span>
-                            Inscription en 30 secondes
+                            Inscription rapide
                         </li>
                         <li>
                             <span className="check"><svg fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg></span>
@@ -250,20 +246,21 @@ export default function LandingClient() {
                         </li>
                     </ul>
                 </div>
-            </section>
+            </section >
 
             {/* FOOTER */}
-            <footer className="footer">
+            < footer className="footer" >
                 <div className="footer-inner">
                     <div className="footer-logo">Grigou</div>
-                    <div className="footer-text">Gestionnaire de budget personnel — Hébergé en France</div>
+                    <div className="footer-text">Gestionnaire de budget personnel hébergé en France</div>
                 </div>
-            </footer>
+            </footer >
 
             {/* AUTH MODAL */}
-            <LandingAuthModal
+            < LandingAuthModal
                 isOpen={modalOpen}
-                onClose={() => setModalOpen(false)}
+                onClose={() => setModalOpen(false)
+                }
                 defaultTab={modalTab}
             />
         </>
