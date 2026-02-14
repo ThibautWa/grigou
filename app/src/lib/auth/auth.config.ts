@@ -11,7 +11,9 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname === '/' || nextUrl.pathname.startsWith('/api/');
+
+      // Pages publiques (landing, auth, etc.)
+      const isLandingPage = nextUrl.pathname === '/';
       const isAuthPage = nextUrl.pathname === '/login'
         || nextUrl.pathname === '/register'
         || nextUrl.pathname === '/forgot-password'
@@ -27,15 +29,25 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
-      // Rediriger vers login si non connecté et accès au dashboard
-      if (isOnDashboard) {
-        if (isLoggedIn) return true;
-        return false; // Redirige vers la page de login
+      // Landing page : publique, mais redirige vers dashboard si connecté
+      if (isLandingPage) {
+        if (isLoggedIn) {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+        return true;
       }
 
-      // Rediriger vers le dashboard si connecté et sur une page d'auth
-      if (isAuthPage && isLoggedIn) {
-        return Response.redirect(new URL('/', nextUrl));
+      // Pages d'auth : redirige vers dashboard si déjà connecté
+      if (isAuthPage) {
+        if (isLoggedIn) {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+        return true;
+      }
+
+      // Dashboard et toutes les autres routes protégées (y compris /api/*)
+      if (!isLoggedIn) {
+        return false; // Redirige vers /login
       }
 
       return true;
