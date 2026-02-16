@@ -123,7 +123,7 @@ export default function BalanceAdjuster({
     const isValidInput = !isNaN(parseFloat(inputValue));
 
     return (
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
             {/* Message de succès */}
             {success && (
                 <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full whitespace-nowrap animate-fade-in">
@@ -145,8 +145,8 @@ export default function BalanceAdjuster({
                                 onKeyDown={handleKeyDown}
                                 disabled={loading}
                                 className={`w-40 px-3 py-2 text-2xl font-bold text-center border-2 rounded-lg focus:outline-none focus:ring-2 transition-colors ${error
-                                        ? 'border-red-300 focus:ring-red-500'
-                                        : 'border-blue-300 focus:ring-blue-500'
+                                    ? 'border-red-300 focus:ring-red-500'
+                                    : 'border-blue-300 focus:ring-blue-500'
                                     }`}
                                 placeholder="0.00"
                             />
@@ -228,7 +228,7 @@ export default function BalanceAdjuster({
                     </span>
 
                     {/* Indicateur d'édition au survol */}
-                    <span className="mt-1 text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                    <span className="mt-1 text-xs text-gray-400 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>

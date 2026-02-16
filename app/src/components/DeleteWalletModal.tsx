@@ -1,7 +1,8 @@
 // components/DeleteWalletModal.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface DeleteWalletModalProps {
     wallet: {
@@ -21,6 +22,12 @@ export default function DeleteWalletModal({
     const [loading, setLoading] = useState(false);
     const [confirmText, setConfirmText] = useState('');
     const [error, setError] = useState('');
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
 
     const hasTransactions = wallet.transaction_count > 0;
     const requiredConfirmText = wallet.name;
@@ -52,7 +59,7 @@ export default function DeleteWalletModal({
     };
 
     const handleForceDelete = async () => {
-        if (confirmText !== requiredConfirmText) {
+        if (hasTransactions && confirmText !== requiredConfirmText) {
             setError(`Veuillez taper exactement "${requiredConfirmText}" pour confirmer`);
             return;
         }
@@ -80,8 +87,12 @@ export default function DeleteWalletModal({
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    const modalContent = (
+        <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+        >
             <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -163,6 +174,7 @@ export default function DeleteWalletModal({
                                         placeholder={`Tapez "${requiredConfirmText}"`}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                                         disabled={loading}
+                                        autoFocus
                                     />
                                 </div>
                             </div>
@@ -191,7 +203,7 @@ export default function DeleteWalletModal({
                         )}
 
                         <button
-                            onClick={hasTransactions ? handleForceDelete : handleForceDelete}
+                            onClick={handleForceDelete}
                             disabled={loading || (hasTransactions && confirmText !== requiredConfirmText)}
                             className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
@@ -225,4 +237,8 @@ export default function DeleteWalletModal({
             </div>
         </div>
     );
+
+    // Render via Portal to escape WalletManager's DOM tree
+    if (!mounted) return null;
+    return createPortal(modalContent, document.body);
 }

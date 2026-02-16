@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import LandingAuthModal from './LandingAuthModal';
+import PreviewGallery from './PreviewGallery';
 
 type AuthTab = 'login' | 'register';
 
@@ -106,7 +107,7 @@ export default function LandingClient() {
             </section >
 
             {/* APP PREVIEW */}
-            < section id="preview" className="preview-section" >
+            <section id="preview" className="preview-section">
                 <div className="section-center">
                     <div style={{ textAlign: 'center' }}>
                         <span className="section-label">Aperçu</span>
@@ -115,77 +116,9 @@ export default function LandingClient() {
                             Une interface simple pour vous aider à comprendre votre situation financière en un coup d&apos;œil.
                         </p>
                     </div>
-                    <div className="preview-container">
-                        <div className="preview-toolbar">
-                            <span className="preview-dot red" />
-                            <span className="preview-dot yellow" />
-                            <span className="preview-dot green" />
-                            <span className="preview-url">grigou.app/dashboard</span>
-                        </div>
-                        <div className="preview-body">
-                            <div className="preview-sidebar">
-                                <div className="preview-sidebar-title">Portefeuilles</div>
-                                <div className="preview-wallet active">
-                                    <div className="preview-wallet-icon" style={{ background: 'var(--accent-glow)' }}>💳</div>
-                                    <div><div className="preview-wallet-name">Compte courant</div><div className="preview-wallet-balance">2 847,50 €</div></div>
-                                </div>
-                                <div className="preview-wallet">
-                                    <div className="preview-wallet-icon" style={{ background: 'rgba(139,92,246,0.1)' }}>🏦</div>
-                                    <div><div className="preview-wallet-name">Livret A</div><div className="preview-wallet-balance">12 400,00 €</div></div>
-                                </div>
-                                <div className="preview-wallet">
-                                    <div className="preview-wallet-icon" style={{ background: 'rgba(6,182,212,0.1)' }}>✈️</div>
-                                    <div><div className="preview-wallet-name">Vacances 2026</div><div className="preview-wallet-balance">850,00 €</div></div>
-                                </div>
-                                <div className="preview-wallet">
-                                    <div className="preview-wallet-icon" style={{ background: 'rgba(244,63,94,0.1)' }}>👥</div>
-                                    <div><div className="preview-wallet-name">Budget coloc</div><div className="preview-wallet-balance">420,75 €</div></div>
-                                </div>
-                            </div>
-                            <div className="preview-main">
-                                <div className="preview-header-row">
-                                    <div>
-                                        <div className="preview-balance-label">Solde actuel</div>
-                                        <div className="preview-balance-amount">2 847,50 €</div>
-                                        <div className="preview-balance-change">▲ +342,00 € ce mois</div>
-                                    </div>
-                                    <div className="btn-cta" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', pointerEvents: 'none' }}>+ Transaction</div>
-                                </div>
-                                <div className="preview-chart">
-                                    <svg viewBox="0 0 600 130" preserveAspectRatio="none">
-                                        <defs>
-                                            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="rgba(52,211,153,0.3)" />
-                                                <stop offset="100%" stopColor="rgba(52,211,153,0)" />
-                                            </linearGradient>
-                                        </defs>
-                                        <path d="M0,90 C50,85 100,70 150,75 C200,80 250,45 300,50 C350,55 400,30 450,35 C500,40 550,20 600,15 L600,130 L0,130 Z" fill="url(#cg)" />
-                                        <path d="M0,90 C50,85 100,70 150,75 C200,80 250,45 300,50 C350,55 400,30 450,35 C500,40 550,20 600,15" fill="none" stroke="var(--accent)" strokeWidth="2.5" />
-                                    </svg>
-                                </div>
-                                <div className="preview-tx-list">
-                                    <div className="preview-tx">
-                                        <div className="preview-tx-left"><div className="preview-tx-icon">🛒</div><div><div className="preview-tx-name">Courses Carrefour</div><div className="preview-tx-cat">Alimentation</div></div></div>
-                                        <div className="preview-tx-amount expense">-67,30 €</div>
-                                    </div>
-                                    <div className="preview-tx">
-                                        <div className="preview-tx-left"><div className="preview-tx-icon">💰</div><div><div className="preview-tx-name">Salaire Février</div><div className="preview-tx-cat">Revenus</div></div></div>
-                                        <div className="preview-tx-amount income">+2 450,00 €</div>
-                                    </div>
-                                    <div className="preview-tx">
-                                        <div className="preview-tx-left"><div className="preview-tx-icon">🏠</div><div><div className="preview-tx-name">Loyer</div><div className="preview-tx-cat">Logement &bull; Récurrent</div></div></div>
-                                        <div className="preview-tx-amount expense">-750,00 €</div>
-                                    </div>
-                                    <div className="preview-tx">
-                                        <div className="preview-tx-left"><div className="preview-tx-icon">🎬</div><div><div className="preview-tx-name">Netflix</div><div className="preview-tx-cat">Loisirs &bull; Récurrent</div></div></div>
-                                        <div className="preview-tx-amount expense">-15,49 €</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <PreviewGallery />
                 </div>
-            </section >
+            </section>
 
             {/* HOW IT WORKS */}
             < section id="how" >
