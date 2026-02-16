@@ -16,6 +16,7 @@ import InvitationsList from '@/components/InvitationsList';
 import BalanceAdjuster from '@/components/BalanceAdjuster';
 import { useWallet } from '@/hooks/useWallet';
 
+
 interface PredictedTransaction {
   id: string;
   type: 'income' | 'outcome';
@@ -250,7 +251,7 @@ export default function Home() {
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
           <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3">
             <Image
-              src="/logo.png"
+              src="/clear-logo.png"
               alt="Grigou Logo"
               width={48}
               height={48}
@@ -426,56 +427,71 @@ export default function Home() {
 
             {/* Cumulative Balance Card - Always shown */}
             {stats && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  💰 Solde cumulé {viewMode === 'prediction' && 'prévisionnel'}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title="Revenus cumulés"
-                    amount={stats.cumulativeIncome}
-                    type="income"
-                    icon="↗"
-                  />
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title="Dépenses cumulées"
-                    amount={stats.cumulativeOutcome}
-                    type="outcome"
-                    icon="↘"
-                  />
+              viewMode === 'current' ? (
+                <>
+                  {/* Mode "Vue actuelle" */}
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                    💰 Solde actuel
+                    <span className="text-gray-500 ml-1 text-sm">
+                      ( {format(new Date(), 'EEEE dd MMMM', { locale: fr })} )
+                    </span>
+                  </h3>
 
-                  {/* ========================================= */}
-                  {/* CARTE SOLDE CUMULÉ AVEC AJUSTEMENT       */}
-                  {/* ========================================= */}
-                  <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0
-                    ? 'bg-blue-50 border-blue-200'
-                    : 'bg-red-50 border-red-200'
-                    }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
-                      <span className="text-2xl">💰</span>
-                    </div>
-
-                    {viewMode === 'current' ? (
-                      /* Mode "Vue actuelle" : Solde cliquable pour ajustement */
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div
+                      className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0
+                        ? 'bg-blue-50 border-blue-200'
+                        : 'bg-red-50 border-red-200'
+                        }`}
+                    >
                       <BalanceAdjuster
                         walletId={selectedWalletId!}
                         currentBalance={stats.cumulativeBalance}
                         onBalanceAdjusted={fetchData}
                       />
-                    ) : (
-                      /* Modes "Période" ou "Prédiction" : Affichage simple */
+                    </div>
+                  </div>
+                </>
+              ) : viewMode === 'prediction' ? (
+                <>
+                  {/* Mode prévisionnel - affichage simple */}
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                    💰 Solde actuel prévisionnel
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+                    <StatsCard
+                      walletId={selectedWalletId!}
+                      title="Revenus cumulés"
+                      amount={stats.cumulativeIncome}
+                      type="income"
+                      icon="↗"
+                    />
+                    <StatsCard
+                      walletId={selectedWalletId!}
+                      title="Dépenses cumulées"
+                      amount={stats.cumulativeOutcome}
+                      type="outcome"
+                      icon="↘"
+                    />
+                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-red-50 border-red-200'
+                      }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
+                      </div>
                       <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'
                         }`}>
                         {stats.cumulativeBalance.toFixed(2)} €
                       </p>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </>
+                </>
+              ) : null
             )}
+
 
             {/* Predicted Transactions */}
             {predictions.length > 0 && viewMode === 'prediction' && (
