@@ -1,4 +1,3 @@
-// app/api/transactions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireUserId } from '@/lib/auth';
@@ -50,6 +49,9 @@ export async function GET(request: NextRequest) {
     if (startDate && endDate) {
       query += ' AND t.date >= $2 AND t.date <= $3';
       params.push(startDate, endDate);
+    } else if (endDate) {
+      query += ' AND t.date <= $2';
+      params.push(endDate);
     }
 
     query += ' ORDER BY t.date DESC, t.created_at DESC';

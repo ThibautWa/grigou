@@ -53,6 +53,7 @@ export default function Home() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [predictions, setPredictions] = useState<PredictedTransaction[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: number; name: string; icon: string; color: string }>>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [monthlyStats, setMonthlyStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,7 @@ export default function Home() {
         fetchTransactions(),
         fetchStats(),
         fetchPredictions(),
+        fetchCategories(),
       ]);
 
       // Fetch monthly stats for current and prediction modes
@@ -109,8 +111,8 @@ export default function Home() {
     if (viewMode === 'period') {
       url += `&startDate=${dateRange.start}&endDate=${dateRange.end}`;
     } else if (viewMode === 'current') {
-      // Current view: all transactions up to today
-      url += `&endDate=${format(new Date(), 'yyyy-MM-dd')}`;
+      // Current view: transactions of the current month only
+      url += `&startDate=${format(startOfMonth(new Date()), 'yyyy-MM-dd')}&endDate=${format(new Date(), 'yyyy-MM-dd')}`;
     }
 
     try {
@@ -181,19 +183,50 @@ export default function Home() {
   const fetchPredictions = async () => {
     if (!selectedWalletId) return;
 
-    if (viewMode !== 'prediction') {
+    if (viewMode === 'prediction') {
+      try {
+        const response = await fetch(
+          `/api/predictions?walletId=${selectedWalletId}&startDate=${format(new Date(), 'yyyy-MM-dd')}&endDate=${predictionDate}`
+        );
+        const data = await response.json();
+        setPredictions(data);
+      } catch (error) {
+        console.error('Error fetching predictions:', error);
+      }
+    } else if (viewMode === 'current') {
+      // Fetch recurring predictions for the current month
+      try {
+        const response = await fetch(
+          `/api/predictions?walletId=${selectedWalletId}&startDate=${format(startOfMonth(new Date()), 'yyyy-MM-dd')}&endDate=${format(endOfMonth(new Date()), 'yyyy-MM-dd')}`
+        );
+        const data = await response.json();
+        setPredictions(data);
+      } catch (error) {
+        console.error('Error fetching predictions:', error);
+      }
+    } else if (viewMode === 'period') {
+      // Fetch recurring predictions for the selected period
+      try {
+        const response = await fetch(
+          `/api/predictions?walletId=${selectedWalletId}&startDate=${dateRange.start}&endDate=${dateRange.end}`
+        );
+        const data = await response.json();
+        setPredictions(data);
+      } catch (error) {
+        console.error('Error fetching predictions:', error);
+      }
+    } else {
       setPredictions([]);
-      return;
     }
+  };
 
+  const fetchCategories = async () => {
     try {
-      const response = await fetch(
-        `/api/predictions?walletId=${selectedWalletId}&startDate=${format(new Date(), 'yyyy-MM-dd')}&endDate=${predictionDate}`
-      );
+      const response = await fetch('/api/categories');
       const data = await response.json();
-      setPredictions(data);
+      setCategories(data);
     } catch (error) {
-      console.error('Error fetching predictions:', error);
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -231,6 +264,31 @@ export default function Home() {
   // Determine which stats to display for monthly section
   const displayedMonthlyStats = monthlyStats;
 
+  // In current and period modes, merge real transactions with predicted recurring ones
+  const displayedTransactions = (viewMode === 'current' || viewMode === 'period')
+    ? [
+      ...transactions,
+      ...predictions.map((p, index) => {
+        const cat = categories.find(c => c.name === p.category);
+        return {
+          id: -(index + 1),
+          type: p.type,
+          amount: p.amount,
+          description: p.description,
+          category: p.category,
+          category_id: cat?.id ?? null,
+          category_name: cat?.name ?? p.category,
+          category_icon: cat?.icon ?? null,
+          category_color: cat?.color ?? null,
+          date: p.date,
+          is_recurring: true,
+          recurrence_type: 'Mensuel',
+          is_predicted: true,
+        } as Transaction;
+      }),
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    : transactions;
+
   if (!isInitialized) {
     return (
       <main className="min-h-screen p-4 md:p-8 bg-gray-50">
@@ -248,8 +306,8 @@ export default function Home() {
     <main className="min-h-screen p-4 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-          <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-3">
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4 overflow-hidden">
+          <h1 className="text-2xl md:text-4xl font-bold text-gray-800 flex items-center gap-3 min-w-0">
             <Image
               src="/clear-logo.png"
               alt="Grigou Logo"
@@ -261,7 +319,7 @@ export default function Home() {
             Grigou - Gestionnaire de Budget
           </h1>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
             <WalletSelector
               selectedWalletId={selectedWalletId}
               onWalletChange={selectWallet}
@@ -493,7 +551,7 @@ export default function Home() {
             )}
 
 
-            {/* Predicted Transactions */}
+            {/* Predicted Transactions - standalone section for prediction mode only */}
             {predictions.length > 0 && viewMode === 'prediction' && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-4">
@@ -523,7 +581,7 @@ export default function Home() {
                   📋 Historique des Transactions
                 </h2>
                 <TransactionList
-                  transactions={transactions}
+                  transactions={displayedTransactions}
                   onTransactionDeleted={handleTransactionDeleted}
                   onTransactionUpdated={handleTransactionDeleted}
                 />
