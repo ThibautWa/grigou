@@ -1,4 +1,3 @@
-// app/api/stats/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { addDays, addWeeks, addMonths, addYears, isBefore, isAfter, format } from 'date-fns';
@@ -7,6 +6,7 @@ import { canReadWallet } from '@/lib/auth/wallet-permissions';
 
 // ============================================
 // Logique de prédictions intégrée directement
+// (évite les fetch() HTTP internes qui échouent)
 // ============================================
 
 interface RecurringTransaction {
@@ -71,6 +71,9 @@ function generatePredictionsForTransaction(
   return predictions;
 }
 
+/**
+ * Récupère les prédictions pour un wallet entre deux dates
+ */
 async function getPredictions(
   walletId: number,
   startDate: string,
@@ -79,17 +82,6 @@ async function getPredictions(
   const endDateObj = new Date(endDate);
   const startDateObj = new Date(startDate);
 
-  // Récupérer la date la plus ancienne des transactions récurrentes
-  const oldestRecurringResult = await pool.query(
-    `SELECT MIN(date) as oldest_date 
-     FROM transactions 
-     WHERE wallet_id = $1 AND is_recurring = true`,
-    [walletId]
-  );
-
-  const oldestRecurringDate = oldestRecurringResult.rows[0]?.oldest_date || startDate;
-
-  // Récupérer les transactions récurrentes
   const result = await pool.query<RecurringTransaction>(
     `SELECT * FROM transactions 
      WHERE wallet_id = $1
@@ -97,7 +89,7 @@ async function getPredictions(
      AND date <= $2
      AND (recurrence_end_date IS NULL OR recurrence_end_date >= $3)
      ORDER BY date ASC`,
-    [walletId, endDate, oldestRecurringDate]
+    [walletId, endDate, startDate]
   );
 
   const recurringTransactions = result.rows;
@@ -108,17 +100,17 @@ async function getPredictions(
     allPredictions = [...allPredictions, ...predictions];
   }
 
-  // Filtrer par date de début
-  const filteredPredictions = allPredictions.filter(pred => {
+  // Filtrer pour ne garder que les prédictions dans la plage demandée
+  const filtered = allPredictions.filter(pred => {
     const predDate = new Date(pred.date);
     return predDate >= startDateObj && predDate <= endDateObj;
   });
 
-  return filteredPredictions;
+  return filtered;
 }
 
 // ============================================
-// Route principale
+// Route principale GET /api/stats
 // ============================================
 
 export async function GET(request: NextRequest) {
@@ -137,6 +129,7 @@ export async function GET(request: NextRequest) {
     const includePredictions = searchParams.get('includePredictions') === 'true';
     const walletId = searchParams.get('walletId');
 
+    // Wallet ID est obligatoire
     if (!walletId) {
       return NextResponse.json(
         { error: 'Wallet ID is required' },
@@ -155,15 +148,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Construire la requête pour les totaux de la période sélectionnée
     let params: any[] = [walletIdNum];
     let whereClause = 'WHERE wallet_id = $1';
 
     if (startDate && endDate) {
       whereClause += ' AND date >= $2 AND date <= $3';
       params.push(startDate, endDate);
+    } else if (endDate) {
+      whereClause += ' AND date <= $2';
+      params.push(endDate);
     }
 
-    // Get total income and outcome for the selected period
+    // Totaux des transactions réelles pour la période
     const totalsQuery = `
       SELECT 
         COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
@@ -171,111 +168,114 @@ export async function GET(request: NextRequest) {
       FROM transactions
       ${whereClause}
     `;
-
     const totalsResult = await pool.query(totalsQuery, params);
     const totals = totalsResult.rows[0];
 
     let periodIncome = parseFloat(totals.total_income);
     let periodOutcome = parseFloat(totals.total_outcome);
 
-    // Calculate cumulative balance
+    // ============================================
+    // CALCUL DU SOLDE CUMULÉ
+    // ============================================
     let cumulativeBalance = 0;
     let cumulativeIncome = 0;
     let cumulativeOutcome = 0;
 
-    if (endDate) {
-      const walletQuery = `SELECT initial_balance FROM wallets WHERE id = $1`;
-      const walletResult = await pool.query(walletQuery, [walletIdNum]);
-      const initialBalance = walletResult.rows[0] ? parseFloat(walletResult.rows[0].initial_balance) : 0;
+    const effectiveEndDate = endDate || format(new Date(), 'yyyy-MM-dd');
+    const today = format(new Date(), 'yyyy-MM-dd');
 
-      const allTransactionsQuery = `
-        SELECT 
-          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-          COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as total_outcome
-        FROM transactions
-        WHERE wallet_id = $1 AND date <= $2
-      `;
-      const allTransactionsResult = await pool.query(allTransactionsQuery, [walletIdNum, endDate]);
-      const allTotals = allTransactionsResult.rows[0];
+    // 1. Récupérer le solde initial du wallet
+    const walletQuery = `SELECT initial_balance FROM wallets WHERE id = $1`;
+    const walletResult = await pool.query(walletQuery, [walletIdNum]);
+    const initialBalance = walletResult.rows[0]
+      ? parseFloat(walletResult.rows[0].initial_balance)
+      : 0;
 
-      cumulativeIncome = parseFloat(allTotals.total_income);
-      cumulativeOutcome = parseFloat(allTotals.total_outcome);
-      cumulativeBalance = initialBalance + cumulativeIncome - cumulativeOutcome;
+    // 2. Récupérer TOUTES les transactions réelles jusqu'à aujourd'hui
+    //    (pas jusqu'à endDate, car il n'y a pas de transactions réelles dans le futur)
+    const allTransactionsQuery = `
+      SELECT 
+        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+        COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as total_outcome
+      FROM transactions
+      WHERE wallet_id = $1 AND date <= $2
+    `;
+    const allTransactionsResult = await pool.query(allTransactionsQuery, [walletIdNum, today]);
+    const allTotals = allTransactionsResult.rows[0];
 
-      // Inclure les prédictions si demandé
-      if (includePredictions) {
-        try {
-          // Récupérer la date la plus ancienne des transactions récurrentes
-          const oldestRecurringQuery = `
-            SELECT MIN(date) as oldest_date 
-            FROM transactions 
-            WHERE wallet_id = $1 AND is_recurring = true
-          `;
-          const oldestResult = await pool.query(oldestRecurringQuery, [walletIdNum]);
-          const oldestDate = oldestResult.rows[0]?.oldest_date;
+    cumulativeIncome = parseFloat(allTotals.total_income);
+    cumulativeOutcome = parseFloat(allTotals.total_outcome);
+    cumulativeBalance = initialBalance + cumulativeIncome - cumulativeOutcome;
 
-          if (oldestDate) {
-            const formattedOldestDate = format(new Date(oldestDate), 'yyyy-MM-dd');
+    // 3. Si on inclut les prédictions (mode prédiction), ajouter UNIQUEMENT
+    //    les prédictions FUTURES (à partir d'aujourd'hui jusqu'à endDate)
+    //    
+    //    ⚠️ FIX: Avant, on ajoutait TOUTES les prédictions depuis l'origine,
+    //    ce qui faisait doublon avec les transactions réelles déjà comptées.
+    //    Maintenant on ajoute seulement les prédictions du futur.
+    if (includePredictions && effectiveEndDate > today) {
+      try {
+        const futurePredictions = await getPredictions(walletIdNum, today, effectiveEndDate);
 
-            // Obtenir toutes les prédictions jusqu'à endDate
-            const allPredictions = await getPredictions(walletIdNum, formattedOldestDate, endDate);
-
-            allPredictions.forEach((pred) => {
-              if (pred.type === 'income') {
-                cumulativeBalance += pred.amount;
-                cumulativeIncome += pred.amount;
-              } else {
-                cumulativeBalance -= pred.amount;
-                cumulativeOutcome += pred.amount;
-              }
-            });
-
-            // Obtenir les prédictions pour la période sélectionnée
-            if (startDate) {
-              const periodPredictions = await getPredictions(walletIdNum, startDate, endDate);
-
-              periodPredictions.forEach((pred) => {
-                if (pred.type === 'income') {
-                  periodIncome += pred.amount;
-                } else {
-                  periodOutcome += pred.amount;
-                }
-              });
-            }
+        futurePredictions.forEach((pred) => {
+          if (pred.type === 'income') {
+            cumulativeBalance += pred.amount;
+            cumulativeIncome += pred.amount;
+          } else {
+            cumulativeBalance -= pred.amount;
+            cumulativeOutcome += pred.amount;
           }
-        } catch (error) {
-          console.error('Error calculating predictions:', error);
-        }
+        });
+      } catch (predError) {
+        console.error('Error fetching predictions for cumulative:', predError);
       }
     }
 
-    // Get monthly evolution
-    const evolutionQuery = `
+    // 4. Ajouter les prédictions de la période pour les totaux affichés
+    //    (section "Prévisions du mois")
+    if (includePredictions && startDate && endDate) {
+      try {
+        const periodPredictions = await getPredictions(walletIdNum, startDate, endDate);
+
+        periodPredictions.forEach((pred) => {
+          if (pred.type === 'income') {
+            periodIncome += pred.amount;
+          } else {
+            periodOutcome += pred.amount;
+          }
+        });
+      } catch (predError) {
+        console.error('Error fetching period predictions:', predError);
+      }
+    }
+
+    // ============================================
+    // DONNÉES MENSUELLES POUR LE GRAPHIQUE
+    // ============================================
+    const monthlyDataQuery = `
       SELECT 
         TO_CHAR(date, 'YYYY-MM') as month,
         COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
         COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as outcome
       FROM transactions
-      ${whereClause}
+      WHERE wallet_id = $1 AND date <= $2
       GROUP BY TO_CHAR(date, 'YYYY-MM')
       ORDER BY month
     `;
+    const monthlyDataResult = await pool.query(monthlyDataQuery, [walletIdNum, effectiveEndDate]);
 
-    const evolutionResult = await pool.query(evolutionQuery, params);
-
-    const monthlyData = evolutionResult.rows.map((row) => {
+    let runningTotal = initialBalance;
+    const monthlyData = monthlyDataResult.rows.map(row => {
       const income = parseFloat(row.income);
       const outcome = parseFloat(row.outcome);
-      const monthlyBalance = income - outcome;
-
+      const balance = income - outcome;
+      runningTotal += balance;
       return {
         month: row.month,
         income,
         outcome,
-        balance: monthlyBalance,
-        cumulative: 0,
-        predicted_income: 0,
-        predicted_outcome: 0,
+        balance,
+        cumulative: runningTotal,
       };
     });
 
@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
       monthlyData,
     });
   } catch (error) {
-    console.error('Error fetching statistics:', error);
+    console.error('Error fetching stats:', error);
     return NextResponse.json(
       { error: 'Erreur lors de la récupération des statistiques' },
       { status: 500 }
