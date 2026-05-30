@@ -9,6 +9,7 @@ export interface User {
   updatedAt: Date;
   lastLoginAt: Date | null;
   isActive: boolean;
+  role: 'standard' | 'premium' | 'admin';
 }
 
 export interface UserCreateDto {
@@ -34,6 +35,7 @@ export interface SessionUser {
   email: string;
   firstName: string;
   lastName: string;
+  role: 'standard' | 'premium' | 'admin';
 }
 
 export interface JWTPayload {
@@ -74,6 +76,7 @@ declare module "next-auth" {
     email: string;
     firstName: string;
     lastName: string;
+    role: 'standard' | 'premium' | 'admin';
   }
 }
 
@@ -84,5 +87,6 @@ declare module "@auth/core/jwt" {
     email?: string;
     firstName?: string;
     lastName?: string;
+    role?: 'standard' | 'premium' | 'admin';
   }
 }

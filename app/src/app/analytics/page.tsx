@@ -27,6 +27,8 @@ interface MonthlyData {
 
 interface CategoryData {
     category: string;
+    icon: string;
+    color: string;
     total: number;
     percentage: number;
 }
@@ -493,6 +495,69 @@ export default function AnalyticsPage() {
                             />
                         </div>
 
+                        {/* ── Revenus vs Dépenses ── */}
+                        <ChartCard
+                            title="📅 Revenus vs Dépenses"
+                            subtitle="Barres opaques = réel · transparentes = prévisions"
+                            controls={
+                                <>
+                                    <SegmentedControl<BarVsExpenseChartType>
+                                        value={revenueChartType}
+                                        onChange={setRevenueChartType}
+                                        options={[
+                                            { value: 'bar', label: '▋ Barres' },
+                                            { value: 'area', label: '◟ Aires' },
+                                        ]}
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: GD.text2, cursor: 'pointer', userSelect: 'none' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={showPredictedBars}
+                                            onChange={e => setShowPredictedBars(e.target.checked)}
+                                            style={{ accentColor: ACCENT, width: 14, height: 14 }}
+                                        />
+                                        Prévisions
+                                    </label>
+                                </>
+                            }
+                        >
+                            <ResponsiveContainer width="100%" height={300}>
+                                {revenueChartType === 'bar' ? (
+                                    <BarChart data={data.monthly} barCategoryGap="22%">
+                                        <CartesianGrid {...gridStyle} />
+                                        <XAxis dataKey="month" tick={axisStyle} />
+                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: 12, color: GD.text2 }} />
+                                        <Bar dataKey="income" fill={INCOME_C} name="Revenus" radius={[3, 3, 0, 0]} />
+                                        <Bar dataKey="outcome" fill={EXPENSE_C} name="Dépenses" radius={[3, 3, 0, 0]} />
+                                        {showPredictedBars && <Bar dataKey="predicted_income" fill={INCOME_C} name="Revenus prévus" radius={[3, 3, 0, 0]} opacity={0.35} />}
+                                        {showPredictedBars && <Bar dataKey="predicted_outcome" fill={EXPENSE_C} name="Dépenses prévues" radius={[3, 3, 0, 0]} opacity={0.35} />}
+                                    </BarChart>
+                                ) : (
+                                    <AreaChart data={data.monthly}>
+                                        <defs>
+                                            <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={INCOME_C} stopOpacity={0.25} />
+                                                <stop offset="95%" stopColor={INCOME_C} stopOpacity={0.02} />
+                                            </linearGradient>
+                                            <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={EXPENSE_C} stopOpacity={0.25} />
+                                                <stop offset="95%" stopColor={EXPENSE_C} stopOpacity={0.02} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid {...gridStyle} />
+                                        <XAxis dataKey="month" tick={axisStyle} />
+                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: 12, color: GD.text2 }} />
+                                        <Area type="monotone" dataKey="income" stroke={INCOME_C} fill="url(#gi)" name="Revenus" strokeWidth={2} />
+                                        <Area type="monotone" dataKey="outcome" stroke={EXPENSE_C} fill="url(#ge)" name="Dépenses" strokeWidth={2} />
+                                    </AreaChart>
+                                )}
+                            </ResponsiveContainer>
+                        </ChartCard>
+
                         {/* ── Solde cumulé ── */}
                         <ChartCard
                             title="📈 Évolution du solde cumulé"
@@ -564,69 +629,6 @@ export default function AnalyticsPage() {
                             </ResponsiveContainer>
                         </ChartCard>
 
-                        {/* ── Revenus vs Dépenses ── */}
-                        <ChartCard
-                            title="📅 Revenus vs Dépenses"
-                            subtitle="Barres opaques = réel · transparentes = prévisions"
-                            controls={
-                                <>
-                                    <SegmentedControl<BarVsExpenseChartType>
-                                        value={revenueChartType}
-                                        onChange={setRevenueChartType}
-                                        options={[
-                                            { value: 'bar', label: '▋ Barres' },
-                                            { value: 'area', label: '◟ Aires' },
-                                        ]}
-                                    />
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: GD.text2, cursor: 'pointer', userSelect: 'none' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={showPredictedBars}
-                                            onChange={e => setShowPredictedBars(e.target.checked)}
-                                            style={{ accentColor: ACCENT, width: 14, height: 14 }}
-                                        />
-                                        Prévisions
-                                    </label>
-                                </>
-                            }
-                        >
-                            <ResponsiveContainer width="100%" height={300}>
-                                {revenueChartType === 'bar' ? (
-                                    <BarChart data={data.monthly} barCategoryGap="22%">
-                                        <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} />
-                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Legend wrapperStyle={{ fontSize: 12, color: GD.text2 }} />
-                                        <Bar dataKey="income" fill={INCOME_C} name="Revenus" radius={[3, 3, 0, 0]} />
-                                        <Bar dataKey="outcome" fill={EXPENSE_C} name="Dépenses" radius={[3, 3, 0, 0]} />
-                                        {showPredictedBars && <Bar dataKey="predicted_income" fill={INCOME_C} name="Revenus prévus" radius={[3, 3, 0, 0]} opacity={0.35} />}
-                                        {showPredictedBars && <Bar dataKey="predicted_outcome" fill={EXPENSE_C} name="Dépenses prévues" radius={[3, 3, 0, 0]} opacity={0.35} />}
-                                    </BarChart>
-                                ) : (
-                                    <AreaChart data={data.monthly}>
-                                        <defs>
-                                            <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={INCOME_C} stopOpacity={0.25} />
-                                                <stop offset="95%" stopColor={INCOME_C} stopOpacity={0.02} />
-                                            </linearGradient>
-                                            <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={EXPENSE_C} stopOpacity={0.25} />
-                                                <stop offset="95%" stopColor={EXPENSE_C} stopOpacity={0.02} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} />
-                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Legend wrapperStyle={{ fontSize: 12, color: GD.text2 }} />
-                                        <Area type="monotone" dataKey="income" stroke={INCOME_C} fill="url(#gi)" name="Revenus" strokeWidth={2} />
-                                        <Area type="monotone" dataKey="outcome" stroke={EXPENSE_C} fill="url(#ge)" name="Dépenses" strokeWidth={2} />
-                                    </AreaChart>
-                                )}
-                            </ResponsiveContainer>
-                        </ChartCard>
-
                         {/* ── Catégories ── */}
                         <ChartCard
                             title="🏷️ Répartition par catégorie"
@@ -668,8 +670,8 @@ export default function AnalyticsPage() {
                                                 innerRadius={52}
                                                 paddingAngle={2}
                                             >
-                                                {data.categoryBreakdown[catTab].map((_, i) => (
-                                                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                                {data.categoryBreakdown[catTab].map((cat, i) => (
+                                                    <Cell key={i} fill={cat.color || PIE_COLORS[i % PIE_COLORS.length]} />
                                                 ))}
                                             </Pie>
                                             <Tooltip formatter={(v: number) => fmtFull(v)} contentStyle={{ background: GD.card2, border: `1px solid ${GD.border2}`, borderRadius: 10, fontSize: 13 }} />
@@ -678,8 +680,9 @@ export default function AnalyticsPage() {
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 200 }}>
                                         {data.categoryBreakdown[catTab].slice(0, 10).map((cat, i) => (
                                             <div key={cat.category} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
-                                                <span style={{ flex: 1, fontSize: '0.8125rem', color: GD.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
+                                                <span style={{ flex: 1, fontSize: '0.8125rem', color: GD.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                    {cat.icon && <span>{cat.icon}</span>}
                                                     {cat.category}
                                                 </span>
                                                 <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: GD.text, flexShrink: 0 }}>
@@ -707,8 +710,15 @@ export default function AnalyticsPage() {
                                         <YAxis
                                             type="category"
                                             dataKey="category"
-                                            tick={{ fontSize: 12, fill: GD.text2 }}
-                                            width={110}
+                                            tick={({ x, y, payload }: any) => {
+                                                const cat = data.categoryBreakdown[catTab].find(c => c.category === payload.value);
+                                                return (
+                                                    <text x={x} y={y} textAnchor="end" dominantBaseline="middle" fill={GD.text2} fontSize={12}>
+                                                        {cat?.icon ? `${cat.icon} ` : ''}{payload.value}
+                                                    </text>
+                                                );
+                                            }}
+                                            width={120}
                                         />
                                         <Tooltip content={<CustomTooltip />} />
                                         <Bar
@@ -716,8 +726,8 @@ export default function AnalyticsPage() {
                                             name="Total"
                                             radius={[0, 4, 4, 0]}
                                         >
-                                            {data.categoryBreakdown[catTab].slice(0, 12).map((_, i) => (
-                                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                            {data.categoryBreakdown[catTab].slice(0, 12).map((cat, i) => (
+                                                <Cell key={i} fill={cat.color || PIE_COLORS[i % PIE_COLORS.length]} />
                                             ))}
                                         </Bar>
                                     </BarChart>

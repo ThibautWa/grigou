@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { User, UserCreateDto } from '@/types/auth';
 import { hashPassword, verifyPassword } from './password';
 import { normalizeEmail, sanitizeName } from './validation';
+import { UserRole } from './user-role';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
@@ -127,9 +128,9 @@ export async function verifyCredentials(
       const remainingMinutes = Math.ceil(
         (new Date(row.locked_until).getTime() - Date.now()) / 60000
       );
-      return { 
-        user: null, 
-        error: `ACCOUNT_LOCKED:${remainingMinutes}` 
+      return {
+        user: null,
+        error: `ACCOUNT_LOCKED:${remainingMinutes}`
       };
     }
 
@@ -139,7 +140,7 @@ export async function verifyCredentials(
     if (!isPasswordValid) {
       // Incrémenter le compteur d'échecs
       const newFailedAttempts = row.failed_login_attempts + 1;
-      
+
       let lockUntil = null;
       if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
         lockUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
@@ -159,9 +160,9 @@ export async function verifyCredentials(
       });
 
       if (lockUntil) {
-        return { 
-          user: null, 
-          error: `ACCOUNT_LOCKED:${LOCKOUT_DURATION_MINUTES}` 
+        return {
+          user: null,
+          error: `ACCOUNT_LOCKED:${LOCKOUT_DURATION_MINUTES}`
         };
       }
 
@@ -278,5 +279,6 @@ function mapRowToUser(row: any): User {
     updatedAt: row.updated_at,
     lastLoginAt: row.last_login_at,
     isActive: row.is_active,
+    role: (row.role ?? 'standard') as UserRole,
   };
 }

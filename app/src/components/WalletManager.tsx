@@ -20,6 +20,14 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
     const [duplicatingWallet, setDuplicatingWallet] = useState<WalletWithStats | null>(null);
     const [deletingWallet, setDeletingWallet] = useState<WalletWithStats | null>(null);
     const [sharingWallet, setSharingWallet] = useState<WalletWithStats | null>(null);
+    const [walletLimitError, setWalletLimitError] = useState<string | null>(null);
+
+    // Nombre de portefeuilles actifs (non archivés) dont l'user est propriétaire
+    const activeOwnedWallets = wallets.filter(
+        w => !w.archived && (!(w as any).permission || (w as any).permission === 'owner')
+    ).length;
+    const STANDARD_LIMIT = 3;
+    const isAtLimit = activeOwnedWallets >= STANDARD_LIMIT;
 
     // Form state
     const [formData, setFormData] = useState({
@@ -63,11 +71,17 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
             if (response.ok) {
                 await fetchWallets();
                 setShowCreateForm(false);
+                setWalletLimitError(null);
                 setFormData({ name: '', description: '', initial_balance: '0' });
                 onWalletCreated?.();
             } else {
                 const error = await response.json();
-                alert(`Erreur: ${error.error}`);
+                if (error.code === 'WALLET_LIMIT_REACHED') {
+                    setWalletLimitError(error.error);
+                    setShowCreateForm(false);
+                } else {
+                    alert(`Erreur: ${error.error}`);
+                }
             }
         } catch (error) {
             console.error('Error creating wallet:', error);
@@ -165,17 +179,50 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
 
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-6">
+                        {/* Limite de portefeuilles */}
+                        {walletLimitError && (
+                            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                                <span className="text-xl shrink-0">🔒</span>
+                                <div>
+                                    <p className="font-semibold text-amber-800 text-sm">Limite atteinte</p>
+                                    <p className="text-amber-700 text-sm mt-0.5">{walletLimitError}</p>
+                                    <p className="text-amber-600 text-xs mt-1">
+                                        Passez en compte <strong>Premium</strong> pour créer des portefeuilles illimités.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Compteur portefeuilles standard */}
+                        {!walletLimitError && (
+                            <div className="mb-4 flex items-center justify-between text-xs text-gray-500">
+                                <span>Portefeuilles actifs</span>
+                                <span className={`font-semibold ${isAtLimit ? 'text-amber-600' : 'text-gray-700'}`}>
+                                    {activeOwnedWallets} / {STANDARD_LIMIT}
+                                </span>
+                            </div>
+                        )}
+
                         {/* Create button */}
                         {!showCreateForm && (
-                            <button
-                                onClick={() => setShowCreateForm(true)}
-                                className="w-full mb-6 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Créer un nouveau portefeuille
-                            </button>
+                            isAtLimit ? (
+                                <div className="w-full mb-6 px-4 py-3 bg-gray-100 border border-gray-200 text-gray-400 rounded-lg flex items-center justify-center gap-2 font-medium cursor-not-allowed select-none">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Limite de {STANDARD_LIMIT} portefeuilles atteinte
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => { setShowCreateForm(true); setWalletLimitError(null); }}
+                                    className="w-full mb-6 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Créer un nouveau portefeuille
+                                </button>
+                            )
                         )}
 
                         {/* Create form */}

@@ -268,21 +268,24 @@ export async function GET(request: NextRequest) {
         // ── 7. Category breakdown ─────────────────────────────────────────────────
         const catResult = await pool.query(
             `SELECT
-         COALESCE(category, 'Sans catégorie') AS category,
-         type,
-         SUM(amount)::float AS total
-       FROM transactions
-       WHERE wallet_id = $1
-         AND date >= $2
-         AND date <= $3
-       GROUP BY category, type
+         COALESCE(c.name, t.category, 'Sans catégorie') AS category,
+         COALESCE(c.icon, '')                            AS icon,
+         COALESCE(c.color, '#94a3b8')                   AS color,
+         t.type,
+         SUM(t.amount)::float                           AS total
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.wallet_id = $1
+         AND t.date >= $2
+         AND t.date <= $3
+       GROUP BY COALESCE(c.name, t.category, 'Sans catégorie'), c.icon, c.color, t.type
        ORDER BY total DESC`,
             [parseInt(walletId), format(historyStart, 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')],
         );
 
         const categoryBreakdown: {
-            outcome: { category: string; total: number; percentage: number }[];
-            income: { category: string; total: number; percentage: number }[];
+            outcome: { category: string; icon: string; color: string; total: number; percentage: number }[];
+            income: { category: string; icon: string; color: string; total: number; percentage: number }[];
         } = { outcome: [], income: [] };
 
         const totals = { income: 0, outcome: 0 };
@@ -291,6 +294,8 @@ export async function GET(request: NextRequest) {
             const t = totals[row.type as 'income' | 'outcome'] || 1;
             categoryBreakdown[row.type as 'income' | 'outcome'].push({
                 category: row.category,
+                icon: row.icon,
+                color: row.color,
                 total: row.total,
                 percentage: Math.round((row.total / t) * 100),
             });

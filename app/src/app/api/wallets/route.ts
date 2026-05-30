@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { CreateWalletDto } from '@/types/wallet';
 import { requireUserId } from '@/lib/auth';
+import { canCreateWallet } from '@/lib/auth/user-role';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -84,8 +85,26 @@ export async function GET(request: NextRequest) {
 // POST /api/wallets - Créer un nouveau portefeuille pour l'utilisateur
 export async function POST(request: NextRequest) {
   try {
-    // Vérifier l'authentification
     let userId: number;
+    try {
+      userId = await requireUserId();
+    } catch {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+    }
+
+    // ── Vérification de la limite de portefeuilles ──
+    const walletCheck = await canCreateWallet(userId);
+    if (!walletCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: walletCheck.reason,
+          code: 'WALLET_LIMIT_REACHED',
+          limit: walletCheck.limit,
+        },
+        { status: 403 },
+      );
+    }
+    // Vérifier l'authentification
     try {
       userId = await requireUserId();
     } catch (error) {
