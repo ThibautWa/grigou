@@ -11,6 +11,16 @@ type AuthTab = 'login' | 'register';
 export default function LandingClient() {
     const [modalOpen, setModalOpen] = useState(false);
     const [modalTab, setModalTab] = useState<AuthTab>('register');
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Grigou',
+        applicationCategory: 'FinanceApplication',
+        operatingSystem: 'Web',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+        description: 'Application de gestion de budget personnel gratuite.',
+        url: 'https://grigou.fr',
+    };
 
     const openModal = useCallback((tab: AuthTab) => {
         setModalTab(tab);
