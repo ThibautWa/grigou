@@ -641,14 +641,6 @@ export default function Home() {
               ) : null
             )}
 
-            {/* Predicted Transactions - prediction mode only */}
-            {predictions.length > 0 && viewMode === 'prediction' && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">🔮 Transactions Prédites</h2>
-                <PredictedTransactions predictions={predictions} />
-              </div>
-            )}
-
             {/* Transaction Form - current mode only */}
             {viewMode === 'current' && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
