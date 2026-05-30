@@ -191,28 +191,39 @@ export async function GET(request: NextRequest) {
       ? parseFloat(walletResult.rows[0].initial_balance)
       : 0;
 
-    // 2. Récupérer TOUTES les transactions réelles jusqu'à aujourd'hui
-    //    (pas jusqu'à endDate, car il n'y a pas de transactions réelles dans le futur)
+    // 2. Transactions réelles jusqu'à aujourd'hui (passé)
     const allTransactionsQuery = `
-      SELECT 
-        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as total_outcome
-      FROM transactions
-      WHERE wallet_id = $1 AND date <= $2
-    `;
+  SELECT 
+    COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+    COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as total_outcome
+  FROM transactions
+  WHERE wallet_id = $1 AND date <= $2
+`;
     const allTransactionsResult = await pool.query(allTransactionsQuery, [walletIdNum, today]);
     const allTotals = allTransactionsResult.rows[0];
 
     cumulativeIncome = parseFloat(allTotals.total_income);
     cumulativeOutcome = parseFloat(allTotals.total_outcome);
+
+    // 2b. Transactions réelles futures (saisies manuellement après aujourd'hui)
+    //     jusqu'à endDate — elles sont réelles donc on les inclut toujours
+    if (effectiveEndDate > today) {
+      const futureRealQuery = `
+    SELECT 
+      COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+      COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount ELSE 0 END), 0) as total_outcome
+    FROM transactions
+    WHERE wallet_id = $1 AND date > $2 AND date <= $3
+  `;
+      const futureRealResult = await pool.query(futureRealQuery, [walletIdNum, today, effectiveEndDate]);
+      const futureRealTotals = futureRealResult.rows[0];
+      cumulativeIncome += parseFloat(futureRealTotals.total_income);
+      cumulativeOutcome += parseFloat(futureRealTotals.total_outcome);
+    }
+
     cumulativeBalance = initialBalance + cumulativeIncome - cumulativeOutcome;
 
-    // 3. Si on inclut les prédictions (mode prédiction), ajouter UNIQUEMENT
-    //    les prédictions FUTURES (à partir d'aujourd'hui jusqu'à endDate)
-    //    
-    //    ⚠️ FIX: Avant, on ajoutait TOUTES les prédictions depuis l'origine,
-    //    ce qui faisait doublon avec les transactions réelles déjà comptées.
-    //    Maintenant on ajoute seulement les prédictions du futur.
+    // 3. Ajouter les prédictions récurrentes FUTURES (après aujourd'hui jusqu'à endDate)
     if (includePredictions && effectiveEndDate > today) {
       try {
         const futurePredictions = await getPredictions(walletIdNum, today, effectiveEndDate);

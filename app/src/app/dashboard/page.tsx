@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, subMonths, addMonths, isFuture, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns';
 import Image from 'next/image';
 import { fr } from 'date-fns/locale';
 import TransactionForm from '@/components/TransactionForm';
@@ -15,7 +15,6 @@ import UserMenu from '@/components/UserMenu';
 import InvitationsList from '@/components/InvitationsList';
 import BalanceAdjuster from '@/components/BalanceAdjuster';
 import { useWallet } from '@/hooks/useWallet';
-
 
 interface PredictedTransaction {
   id: string;
@@ -48,6 +47,164 @@ interface Stats {
 
 type ViewMode = 'current' | 'period' | 'prediction';
 
+// ============================================================
+// Composant bloc dépliable de détail des calculs
+// ============================================================
+interface CalcDetailProps {
+  title: string;
+  transactions: Transaction[];
+  totalIncome: number;
+  totalOutcome: number;
+  balance: number;
+  // Pour le bloc solde cumulé (mode prédiction uniquement)
+  showCumulative?: boolean;
+  initialBalance?: number;
+  cumulativeIncome?: number;
+  cumulativeOutcome?: number;
+  cumulativeBalance?: number;
+  predictionDate?: string;
+}
+
+function CalcDetail({
+  title,
+  transactions,
+  totalIncome,
+  totalOutcome,
+  balance,
+  showCumulative,
+  initialBalance,
+  cumulativeIncome,
+  cumulativeOutcome,
+  cumulativeBalance,
+  predictionDate,
+}: CalcDetailProps) {
+  const [open, setOpen] = useState(false);
+
+  const incomeTransactions = transactions.filter(t => t.type === 'income');
+  const outcomeTransactions = transactions.filter(t => t.type === 'outcome');
+
+  const formatAmount = (amount: number) =>
+    new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+
+  return (
+    <div className="rounded-lg border border-gray-700 bg-gray-800 mb-8 text-sm overflow-hidden">
+      {/* Header cliquable */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-6 py-3 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 transition-colors"
+      >
+        <span className="font-medium">💡 {title}</span>
+        <svg
+          className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Contenu dépliable */}
+      {open && (
+        <div className="px-6 pb-5 pt-1 border-t border-gray-700">
+
+          {/* --- Revenus --- */}
+          {incomeTransactions.length > 0 && (
+            <div className="mb-4">
+              <p className="text-green-400 font-semibold mb-2 uppercase tracking-wide text-xs">Revenus</p>
+              <div className="space-y-1 font-mono">
+                {incomeTransactions.map((t, i) => (
+                  <div key={t.id ?? i} className="flex justify-between text-gray-300">
+                    <span className="truncate max-w-xs text-gray-400">
+                      {format(new Date(t.date), 'dd/MM', { locale: fr })}
+                      {' · '}
+                      {t.description || <span className="italic text-gray-500">Sans description</span>}
+                      {(t as any).is_predicted && (
+                        <span className="ml-1 text-blue-400 text-xs">(prévu)</span>
+                      )}
+                    </span>
+                    <span className="text-green-400 ml-4 flex-shrink-0">+{formatAmount(t.amount)} €</span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-gray-700 pt-1 mt-1 text-green-400 font-bold">
+                  <span>Total revenus</span>
+                  <span>+{formatAmount(totalIncome)} €</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- Dépenses --- */}
+          {outcomeTransactions.length > 0 && (
+            <div className="mb-4">
+              <p className="text-red-400 font-semibold mb-2 uppercase tracking-wide text-xs">Dépenses</p>
+              <div className="space-y-1 font-mono">
+                {outcomeTransactions.map((t, i) => (
+                  <div key={t.id ?? i} className="flex justify-between text-gray-300">
+                    <span className="truncate max-w-xs text-gray-400">
+                      {format(new Date(t.date), 'dd/MM', { locale: fr })}
+                      {' · '}
+                      {t.description || <span className="italic text-gray-500">Sans description</span>}
+                      {(t as any).is_predicted && (
+                        <span className="ml-1 text-blue-400 text-xs">(prévu)</span>
+                      )}
+                    </span>
+                    <span className="text-red-400 ml-4 flex-shrink-0">−{formatAmount(t.amount)} €</span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-gray-700 pt-1 mt-1 text-red-400 font-bold">
+                  <span>Total dépenses</span>
+                  <span>−{formatAmount(totalOutcome)} €</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- Solde de la période --- */}
+          <div className="border-t border-gray-600 pt-3 mt-2 font-mono">
+            <div className="flex justify-between font-bold text-base">
+              <span className="text-gray-200">= Solde de la période</span>
+              <span className={balance >= 0 ? 'text-green-400' : 'text-red-400'}>
+                {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
+              </span>
+            </div>
+          </div>
+
+          {/* --- Bloc cumulé (mode prédiction) --- */}
+          {showCumulative && initialBalance !== undefined && cumulativeIncome !== undefined && cumulativeOutcome !== undefined && cumulativeBalance !== undefined && (
+            <div className="border-t border-gray-600 pt-3 mt-4 font-mono space-y-1">
+              <p className="text-gray-400 text-xs uppercase tracking-wide font-semibold mb-2">
+                Solde au {predictionDate ? format(new Date(predictionDate), 'dd/MM/yyyy') : ''}
+              </p>
+              <div className="flex justify-between text-gray-300">
+                <span>Solde initial</span>
+                <span className="text-white">{formatAmount(initialBalance)} €</span>
+              </div>
+              <div className="flex justify-between text-green-400">
+                <span>+ Revenus cumulés</span>
+                <span>+{formatAmount(cumulativeIncome)} €</span>
+              </div>
+              <div className="flex justify-between text-red-400">
+                <span>− Dépenses cumulées</span>
+                <span>−{formatAmount(cumulativeOutcome)} €</span>
+              </div>
+              <div className="flex justify-between font-bold text-base border-t border-gray-600 pt-2 mt-1">
+                <span className="text-gray-200">
+                  = Solde au {predictionDate ? format(new Date(predictionDate), 'dd/MM/yyyy') : ''}
+                </span>
+                <span className={cumulativeBalance >= 0 ? 'text-green-400' : 'text-red-400'}>
+                  {formatAmount(cumulativeBalance)} €
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Dashboard principal
+// ============================================================
 export default function Home() {
   const { selectedWalletId, selectWallet, isInitialized } = useWallet();
 
@@ -59,21 +216,17 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showWalletManager, setShowWalletManager] = useState(false);
 
-  // View mode: 'current' (default), 'period', or 'prediction'
   const [viewMode, setViewMode] = useState<ViewMode>('current');
 
-  // Date range for period mode
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd'),
   });
 
-  // Single date for prediction mode
   const [predictionDate, setPredictionDate] = useState(
     format(addMonths(new Date(), 1), 'yyyy-MM-dd')
   );
 
-  // Fetch data when wallet changes or dates change
   useEffect(() => {
     if (selectedWalletId && isInitialized) {
       fetchData();
@@ -82,7 +235,6 @@ export default function Home() {
 
   const fetchData = async () => {
     if (!selectedWalletId) return;
-
     setLoading(true);
     try {
       await Promise.all([
@@ -91,8 +243,6 @@ export default function Home() {
         fetchPredictions(),
         fetchCategories(),
       ]);
-
-      // Fetch monthly stats for current and prediction modes
       if (viewMode === 'prediction' || viewMode === 'current') {
         await fetchMonthlyStats();
       }
@@ -105,16 +255,12 @@ export default function Home() {
 
   const fetchTransactions = async () => {
     if (!selectedWalletId) return;
-
     let url = `/api/transactions?walletId=${selectedWalletId}`;
-
     if (viewMode === 'period') {
       url += `&startDate=${dateRange.start}&endDate=${dateRange.end}`;
     } else if (viewMode === 'current') {
-      // Current view: transactions of the current month only
       url += `&startDate=${format(startOfMonth(new Date()), 'yyyy-MM-dd')}&endDate=${format(new Date(), 'yyyy-MM-dd')}`;
     }
-
     try {
       const response = await fetch(url);
       const data = await response.json();
@@ -126,18 +272,14 @@ export default function Home() {
 
   const fetchStats = async () => {
     if (!selectedWalletId) return;
-
     let url = `/api/stats?walletId=${selectedWalletId}`;
-
     if (viewMode === 'period') {
       url += `&startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=false`;
     } else if (viewMode === 'prediction') {
       url += `&endDate=${predictionDate}&includePredictions=true`;
     } else {
-      // Current view: up to today
       url += `&endDate=${format(new Date(), 'yyyy-MM-dd')}&includePredictions=false`;
     }
-
     try {
       const response = await fetch(url);
       const data = await response.json();
@@ -149,7 +291,6 @@ export default function Home() {
 
   const fetchMonthlyStats = async () => {
     if (!selectedWalletId) return;
-
     let monthStart: string;
     let monthEnd: string;
     let includePredictions = false;
@@ -160,11 +301,10 @@ export default function Home() {
       monthEnd = format(endOfMonth(predDate), 'yyyy-MM-dd');
       includePredictions = true;
     } else if (viewMode === 'current') {
-      // Stats du mois en cours - AVEC les transactions récurrentes prévues
       const today = new Date();
       monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
-      monthEnd = format(endOfMonth(today), 'yyyy-MM-dd'); // Jusqu'à la fin du mois
-      includePredictions = true; // Inclure les transactions récurrentes du mois
+      monthEnd = format(endOfMonth(today), 'yyyy-MM-dd');
+      includePredictions = true;
     } else {
       return;
     }
@@ -182,7 +322,6 @@ export default function Home() {
 
   const fetchPredictions = async () => {
     if (!selectedWalletId) return;
-
     if (viewMode === 'prediction') {
       try {
         const response = await fetch(
@@ -194,7 +333,6 @@ export default function Home() {
         console.error('Error fetching predictions:', error);
       }
     } else if (viewMode === 'current') {
-      // Fetch recurring predictions for the current month
       try {
         const response = await fetch(
           `/api/predictions?walletId=${selectedWalletId}&startDate=${format(startOfMonth(new Date()), 'yyyy-MM-dd')}&endDate=${format(endOfMonth(new Date()), 'yyyy-MM-dd')}`
@@ -205,7 +343,6 @@ export default function Home() {
         console.error('Error fetching predictions:', error);
       }
     } else if (viewMode === 'period') {
-      // Fetch recurring predictions for the selected period
       try {
         const response = await fetch(
           `/api/predictions?walletId=${selectedWalletId}&startDate=${dateRange.start}&endDate=${dateRange.end}`
@@ -230,20 +367,12 @@ export default function Home() {
     }
   };
 
-  const handleTransactionAdded = () => {
-    fetchData();
-  };
-
-  const handleTransactionDeleted = () => {
-    fetchData();
-  };
+  const handleTransactionAdded = () => fetchData();
+  const handleTransactionDeleted = () => fetchData();
 
   const handleInvitationAccepted = (walletId: number) => {
     // @ts-ignore
-    if (window.refreshWalletSelector) {
-      // @ts-ignore
-      window.refreshWalletSelector();
-    }
+    if (window.refreshWalletSelector) window.refreshWalletSelector();
     selectWallet(walletId);
   };
 
@@ -261,10 +390,9 @@ export default function Home() {
     setPredictionDate(format(newDate, 'yyyy-MM-dd'));
   };
 
-  // Determine which stats to display for monthly section
-  const displayedMonthlyStats = monthlyStats;
+  const displayedMonthlyStats = viewMode === 'period' ? stats : monthlyStats;
 
-  // In current and period modes, merge real transactions with predicted recurring ones
+  // Transactions affichées : réelles + prédites (fusionnées et triées)
   const displayedTransactions = (viewMode === 'current' || viewMode === 'period')
     ? [
       ...transactions,
@@ -289,6 +417,25 @@ export default function Home() {
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     : transactions;
 
+  // Solde initial déduit depuis les valeurs cumulées
+  const derivedInitialBalance = stats
+    ? stats.cumulativeBalance - stats.cumulativeIncome + stats.cumulativeOutcome
+    : 0;
+
+  // Label du titre de la section flux
+  const fluxTitle = viewMode === 'current'
+    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})`
+    : viewMode === 'prediction'
+      ? 'Prévisions du mois'
+      : 'Période sélectionnée';
+
+  // Label du titre du bloc dépliable flux
+  const calcFluxTitle = viewMode === 'current'
+    ? `Détail — Mois de ${format(new Date(), 'MMMM yyyy', { locale: fr })}`
+    : viewMode === 'prediction'
+      ? `Détail — Mois de ${format(new Date(predictionDate), 'MMMM yyyy', { locale: fr })}`
+      : `Détail — Du ${format(new Date(dateRange.start), 'dd/MM/yyyy')} au ${format(new Date(dateRange.end), 'dd/MM/yyyy')}`;
+
   if (!isInitialized) {
     return (
       <main className="min-h-screen p-4 md:p-8 bg-gray-50">
@@ -305,20 +452,13 @@ export default function Home() {
   return (
     <main className="min-h-screen p-4 md:p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4 overflow-hidden">
           <h1 className="text-2xl md:text-4xl font-bold text-gray-800 flex items-center gap-3 min-w-0">
-            <Image
-              src="/clear-logo.png"
-              alt="Grigou Logo"
-              width={48}
-              height={48}
-              className="object-contain"
-              priority
-            />
+            <Image src="/clear-logo.png" alt="Grigou Logo" width={48} height={48} className="object-contain" priority />
             Grigou - Gestionnaire de Budget
           </h1>
-
           <div className="flex items-center gap-4 flex-shrink-0">
             <WalletSelector
               selectedWalletId={selectedWalletId}
@@ -335,70 +475,39 @@ export default function Home() {
         {/* View Mode Controls */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4 justify-between">
-            {/* Mode Selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Mode :</span>
               <div className="flex rounded-lg overflow-hidden border border-gray-300">
                 <button
                   onClick={() => setViewMode('current')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'current'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'current' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
                 >
                   📍 Vue actuelle
                 </button>
                 <button
                   onClick={() => setViewMode('period')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'period'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'period' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
                 >
                   📅 Période
                 </button>
                 <button
                   onClick={() => setViewMode('prediction')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'prediction'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                    }`}
+                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'prediction' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
                 >
                   🔮 Prédiction
                 </button>
               </div>
             </div>
 
-            {/* Date Controls based on mode */}
             {viewMode === 'period' && (
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="text-sm font-medium text-gray-700">Du:</label>
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
-                />
+                <input type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className="border border-gray-300 rounded px-3 py-1 text-sm" />
                 <span className="text-gray-500">au</span>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
-                />
+                <input type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className="border border-gray-300 rounded px-3 py-1 text-sm" />
                 <div className="flex gap-1 ml-2">
-                  <button
-                    onClick={() => adjustDateRange(-1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    ← Mois
-                  </button>
-                  <button
-                    onClick={() => adjustDateRange(1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    Mois →
-                  </button>
+                  <button onClick={() => adjustDateRange(-1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">← Mois</button>
+                  <button onClick={() => adjustDateRange(1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Mois →</button>
                 </div>
               </div>
             )}
@@ -406,26 +515,10 @@ export default function Home() {
             {viewMode === 'prediction' && (
               <div className="flex items-center gap-2 flex-wrap">
                 <label className="text-sm font-medium text-gray-700">Prédiction au :</label>
-                <input
-                  type="date"
-                  value={predictionDate}
-                  onChange={(e) => setPredictionDate(e.target.value)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  className="border border-gray-300 rounded px-3 py-1 text-sm"
-                />
+                <input type="date" value={predictionDate} onChange={(e) => setPredictionDate(e.target.value)} min={format(new Date(), 'yyyy-MM-dd')} className="border border-gray-300 rounded px-3 py-1 text-sm" />
                 <div className="flex gap-1 ml-2">
-                  <button
-                    onClick={() => adjustPredictionDate(-1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    ← Mois
-                  </button>
-                  <button
-                    onClick={() => adjustPredictionDate(1)}
-                    className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                  >
-                    Mois →
-                  </button>
+                  <button onClick={() => adjustPredictionDate(-1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">← Mois</button>
+                  <button onClick={() => adjustPredictionDate(1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Mois →</button>
                 </div>
               </div>
             )}
@@ -447,61 +540,63 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* Monthly Stats Cards - Affichées pour current, period et prediction */}
+            {/* =============================================
+                SECTION 1 : Flux de la période / du mois
+            ============================================= */}
             {displayedMonthlyStats && (
               <>
                 <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  📅 {viewMode === 'current'
-                    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})`
-                    : viewMode === 'prediction'
-                      ? 'Prévisions du mois'
-                      : 'Période sélectionnée'}
+                  📅 {fluxTitle}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? "Revenus du mois" : "Revenus"}
+                    title={viewMode === 'prediction' ? 'Revenus du mois' : 'Revenus'}
                     amount={displayedMonthlyStats.totalIncome}
                     type="income"
                     icon="↗"
                   />
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? "Dépenses du mois" : "Dépenses"}
+                    title={viewMode === 'prediction' ? 'Dépenses du mois' : 'Dépenses'}
                     amount={displayedMonthlyStats.totalOutcome}
                     type="outcome"
                     icon="↘"
                   />
                   <StatsCard
                     walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? "Solde du mois" : "Solde"}
+                    title={viewMode === 'prediction' ? 'Solde du mois' : 'Solde'}
                     amount={displayedMonthlyStats.balance}
                     type={displayedMonthlyStats.balance >= 0 ? 'income' : 'outcome'}
                     icon="="
                   />
                 </div>
+
+                {/* Bloc dépliable — détail des transactions de la période */}
+                <CalcDetail
+                  title={calcFluxTitle}
+                  transactions={displayedTransactions}
+                  totalIncome={displayedMonthlyStats.totalIncome}
+                  totalOutcome={displayedMonthlyStats.totalOutcome}
+                  balance={displayedMonthlyStats.balance}
+                />
               </>
             )}
 
-            {/* Cumulative Balance Card - Always shown */}
+            {/* =============================================
+                SECTION 2 : Solde cumulé
+            ============================================= */}
             {stats && (
               viewMode === 'current' ? (
                 <>
-                  {/* Mode "Vue actuelle" */}
                   <h3 className="text-lg font-semibold text-gray-700 mb-3">
                     💰 Solde actuel
                     <span className="text-gray-500 ml-1 text-sm">
                       ( {format(new Date(), 'EEEE dd MMMM', { locale: fr })} )
                     </span>
                   </h3>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div
-                      className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0
-                        ? 'bg-blue-50 border-blue-200'
-                        : 'bg-red-50 border-red-200'
-                        }`}
-                    >
+                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
                       <BalanceAdjuster
                         walletId={selectedWalletId!}
                         currentBalance={stats.cumulativeBalance}
@@ -512,74 +607,60 @@ export default function Home() {
                 </>
               ) : viewMode === 'prediction' ? (
                 <>
-                  {/* Mode prévisionnel - affichage simple */}
                   <h3 className="text-lg font-semibold text-gray-700 mb-3">
                     💰 Solde actuel prévisionnel
                   </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-                    <StatsCard
-                      walletId={selectedWalletId!}
-                      title="Revenus cumulés"
-                      amount={stats.cumulativeIncome}
-                      type="income"
-                      icon="↗"
-                    />
-                    <StatsCard
-                      walletId={selectedWalletId!}
-                      title="Dépenses cumulées"
-                      amount={stats.cumulativeOutcome}
-                      type="outcome"
-                      icon="↘"
-                    />
-                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'bg-red-50 border-red-200'
-                      }`}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                    <StatsCard walletId={selectedWalletId!} title="Revenus cumulés" amount={stats.cumulativeIncome} type="income" icon="↗" />
+                    <StatsCard walletId={selectedWalletId!} title="Dépenses cumulées" amount={stats.cumulativeOutcome} type="outcome" icon="↘" />
+                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
                       </div>
-                      <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'
-                        }`}>
+                      <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                         {stats.cumulativeBalance.toFixed(2)} €
                       </p>
                     </div>
                   </div>
+
+                  {/* Bloc dépliable — détail du solde cumulé */}
+                  <CalcDetail
+                    title={`Détail — Solde au ${format(new Date(predictionDate), 'dd/MM/yyyy')}`}
+                    transactions={displayedTransactions}
+                    totalIncome={stats.cumulativeIncome}
+                    totalOutcome={stats.cumulativeOutcome}
+                    balance={stats.cumulativeBalance - derivedInitialBalance}
+                    showCumulative
+                    initialBalance={derivedInitialBalance}
+                    cumulativeIncome={stats.cumulativeIncome}
+                    cumulativeOutcome={stats.cumulativeOutcome}
+                    cumulativeBalance={stats.cumulativeBalance}
+                    predictionDate={predictionDate}
+                  />
                 </>
               ) : null
             )}
 
-
-            {/* Predicted Transactions - standalone section for prediction mode only */}
+            {/* Predicted Transactions - prediction mode only */}
             {predictions.length > 0 && viewMode === 'prediction' && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  🔮 Transactions Prédites
-                </h2>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">🔮 Transactions Prédites</h2>
                 <PredictedTransactions predictions={predictions} />
               </div>
             )}
 
-            {/* Transaction Form */}
+            {/* Transaction Form - current mode only */}
             {viewMode === 'current' && (
               <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  📝 Ajouter une Transaction
-                </h2>
-                <TransactionForm
-                  onTransactionAdded={handleTransactionAdded}
-                  selectedWalletId={selectedWalletId!}
-                />
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">📝 Ajouter une Transaction</h2>
+                <TransactionForm onTransactionAdded={handleTransactionAdded} selectedWalletId={selectedWalletId!} />
               </div>
             )}
 
-            {/* Transaction List - Only in current and period mode */}
+            {/* Transaction List */}
             {viewMode !== 'prediction' && (
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  📋 Historique des Transactions
-                </h2>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">📋 Historique des Transactions</h2>
                 <TransactionList
                   transactions={displayedTransactions}
                   onTransactionDeleted={handleTransactionDeleted}
@@ -597,10 +678,7 @@ export default function Home() {
           onClose={() => setShowWalletManager(false)}
           onWalletCreated={() => {
             // @ts-ignore
-            if (window.refreshWalletSelector) {
-              // @ts-ignore
-              window.refreshWalletSelector();
-            }
+            if (window.refreshWalletSelector) window.refreshWalletSelector();
           }}
         />
       )}
