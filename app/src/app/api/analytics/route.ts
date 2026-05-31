@@ -4,9 +4,9 @@ import pool from '@/lib/db';
 import { requireUserId } from '@/lib/auth';
 import { canReadWallet } from '@/lib/auth/wallet-permissions';
 import {
-    addDays, addWeeks, addMonths, addYears,
+    addDays, addMonths, addYears,
     isBefore, isAfter, format,
-    startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+    startOfMonth, endOfMonth,
     subMonths, startOfDay,
 } from 'date-fns';
 
@@ -96,33 +96,38 @@ function buildMonthlyBuckets(historyStart: Date, totalMonths: number, now: Date)
             start, end,
             income: 0, outcome: 0, balance: 0, cumulative: 0,
             predicted_income: 0, predicted_outcome: 0,
-            is_future: startOfMonth(d) > startOfDay(now),
+            is_future: startOfMonth(d) > startOfMonth(addMonths(now, 1)),
         });
     }
     return buckets;
 }
 
-function buildWeeklyBuckets(historyStart: Date, totalMonths: number, now: Date): Bucket[] {
+function buildDailyBuckets(historyStart: Date, totalMonths: number, now: Date): Bucket[] {
     const buckets: Bucket[] = [];
     const rangeEnd = endOfMonth(addMonths(historyStart, totalMonths - 1));
-    // Start from the monday of the week containing historyStart
-    let weekStart = startOfWeek(historyStart, { weekStartsOn: 1 });
-    const today = startOfDay(now);
+    let day = startOfDay(historyStart);
+    const futureThreshold = endOfMonth(addMonths(now, 1));
 
-    while (weekStart <= rangeEnd) {
-        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    while (day <= rangeEnd) {
+        const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
         buckets.push({
-            label: format(weekStart, 'dd MMM'),
-            key: format(weekStart, 'yyyy-MM-dd'),
-            start: weekStart,
-            end: weekEnd,
+            label: format(day, 'dd MMM'),
+            key: format(day, 'yyyy-MM-dd'),
+            start: new Date(day),
+            end: dayEnd,
             income: 0, outcome: 0, balance: 0, cumulative: 0,
             predicted_income: 0, predicted_outcome: 0,
-            is_future: weekStart > today,
+            is_future: day > futureThreshold,
         });
-        weekStart = addWeeks(weekStart, 1);
+        day = addDays(day, 1);
     }
     return buckets;
+}
+
+// Parse "yyyy-MM-dd" sans décalage UTC (minuit heure locale)
+function parseLocalDate(dateStr: string): Date {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
 }
 
 function fillBuckets(
@@ -133,7 +138,7 @@ function fillBuckets(
 ) {
     // Assign real transactions
     for (const tx of realTxs) {
-        const d = new Date(tx.date);
+        const d = parseLocalDate(tx.date);
         const bucket = buckets.find(b => d >= b.start && d <= b.end);
         if (!bucket) continue;
         if (tx.type === 'income') bucket.income += tx.amount;
@@ -142,7 +147,7 @@ function fillBuckets(
 
     // Assign predictions
     for (const pred of predictions) {
-        const d = new Date(pred.date);
+        const d = parseLocalDate(pred.date);
         const bucket = buckets.find(b => d >= b.start && d <= b.end);
         if (!bucket) continue;
         if (pred.type === 'income') bucket.predicted_income += pred.amount;
@@ -153,8 +158,11 @@ function fillBuckets(
     let cumulative = anchorBalance;
     for (const b of buckets) {
         if (b.is_future) {
+            // Semaine/mois entièrement futur : uniquement les prévisions récurrentes
             b.balance = b.predicted_income - b.predicted_outcome;
         } else {
+            // Semaine/mois passé ou en cours : uniquement les transactions réelles
+            // Les prédictions futures dans la même semaine seront dans les buckets suivants
             b.balance = b.income - b.outcome;
         }
         cumulative += b.balance;
@@ -192,6 +200,7 @@ export async function GET(request: NextRequest) {
         const totalMonths = monthsBack + 3; // history + 3 months forecast
 
         // ── 1. Real transactions ──────────────────────────────────────────────────
+        const weeklyFetchStart = historyStart; // daily buckets start exactly at historyStart
         const txResult = await pool.query(
             `SELECT date::text, type, amount::float, category, description, is_recurring
        FROM transactions
@@ -199,25 +208,40 @@ export async function GET(request: NextRequest) {
          AND date >= $2
          AND date <= $3
        ORDER BY date ASC`,
-            [parseInt(walletId), format(historyStart, 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')],
+            // On charge jusqu'à la fin du mois courant pour inclure les transactions
+            // saisies manuellement avec une date dans le futur proche (même mois)
+            [parseInt(walletId), format(weeklyFetchStart, 'yyyy-MM-dd'), format(endOfMonth(addMonths(now, 1)), 'yyyy-MM-dd')],
         );
         const realTxs = txResult.rows as TxEntry[];
+        // Pour les buckets mensuels on filtre à partir de historyStart
+        const realTxsMonthly = realTxs.filter(tx => tx.date >= format(historyStart, 'yyyy-MM-dd'));
 
         // ── 2. Anchor balance (everything before historyStart) ────────────────────
+        // Inclut initial_balance du wallet + toutes les transactions avant historyStart
         const anchorResult = await pool.query(
-            `SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END), 0)::float AS balance
-       FROM transactions WHERE wallet_id = $1 AND date < $2`,
+            `SELECT (
+         (SELECT COALESCE(initial_balance, 0) FROM wallets WHERE id = $1)
+         + COALESCE((
+             SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END)
+             FROM transactions WHERE wallet_id = $1 AND date < $2
+           ), 0)
+       )::float AS balance`,
             [parseInt(walletId), format(historyStart, 'yyyy-MM-dd')],
         );
-        const anchorBalance: number = anchorResult.rows[0].balance;
+        const anchorBalance: number = parseFloat(anchorResult.rows[0]?.balance ?? '0');
 
         // ── 3. Current balance (for KPI) ─────────────────────────────────────────
         const balResult = await pool.query(
-            `SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END), 0)::float AS balance
-       FROM transactions WHERE wallet_id = $1`,
+            `SELECT (
+         (SELECT COALESCE(initial_balance, 0) FROM wallets WHERE id = $1)
+         + COALESCE((
+             SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END)
+             FROM transactions WHERE wallet_id = $1
+           ), 0)
+       )::float AS balance`,
             [parseInt(walletId)],
         );
-        const currentBalance: number = balResult.rows[0].balance;
+        const currentBalance: number = parseFloat(balResult.rows[0]?.balance ?? '0');
 
         // ── 4. Recurring transactions → future predictions ────────────────────────
         const recurResult = await pool.query<RecurringTx>(
@@ -231,7 +255,9 @@ export async function GET(request: NextRequest) {
             [parseInt(walletId), format(forecastEnd, 'yyyy-MM-dd'), format(historyStart, 'yyyy-MM-dd')],
         );
 
-        const tomorrow = addDays(now, 1);
+        // Les prédictions commencent au début du mois+2 pour éviter
+        // de doubler les transactions saisies manuellement dans le futur proche
+        const tomorrow = startOfMonth(addMonths(now, 2));
         const allPredictions: TxEntry[] = [];
         for (const tx of recurResult.rows) {
             allPredictions.push(...generatePredictionsForRange(tx, tomorrow, forecastEnd));
@@ -239,7 +265,7 @@ export async function GET(request: NextRequest) {
 
         // ── 5. Build monthly buckets ──────────────────────────────────────────────
         const monthlyBuckets = buildMonthlyBuckets(historyStart, totalMonths, now);
-        fillBuckets(monthlyBuckets, realTxs, allPredictions, anchorBalance);
+        fillBuckets(monthlyBuckets, realTxsMonthly, allPredictions, anchorBalance);
 
         const monthly = monthlyBuckets.map(b => ({
             month: b.label,
@@ -254,8 +280,24 @@ export async function GET(request: NextRequest) {
         }));
 
         // ── 6. Build weekly buckets ───────────────────────────────────────────────
-        const weeklyBuckets = buildWeeklyBuckets(historyStart, totalMonths, now);
-        fillBuckets(weeklyBuckets, realTxs, allPredictions, anchorBalance);
+        const weeklyBuckets = buildDailyBuckets(historyStart, totalMonths, now);
+
+        // L'ancre hebdo doit tenir compte du fait que le premier bucket peut
+        // commencer avant historyStart (lundi de la semaine contenant historyStart)
+        const weeklyRangeStart = historyStart;
+        const weeklyAnchorResult = await pool.query(
+            `SELECT (
+         (SELECT COALESCE(initial_balance, 0) FROM wallets WHERE id = $1)
+         + COALESCE((
+             SELECT SUM(CASE WHEN type='income' THEN amount ELSE -amount END)
+             FROM transactions WHERE wallet_id = $1 AND date < $2
+           ), 0)
+       )::float AS balance`,
+            [parseInt(walletId), format(weeklyRangeStart, 'yyyy-MM-dd')],
+        );
+        const weeklyAnchorBalance: number = parseFloat(weeklyAnchorResult.rows[0]?.balance ?? '0');
+
+        fillBuckets(weeklyBuckets, realTxs, allPredictions, weeklyAnchorBalance);
 
         const weekly = weeklyBuckets.map(b => ({
             month: b.label,   // reuse field name so frontend is identical
@@ -307,8 +349,8 @@ export async function GET(request: NextRequest) {
         const curMonth = monthly.find(m => m.monthKey === currentMonthKey);
         const prevMonth = monthly.find(m => m.monthKey === prevMonthKey);
 
-        const totalIncome = realTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const totalOutcome = realTxs.filter(t => t.type === 'outcome').reduce((s, t) => s + t.amount, 0);
+        const totalIncome = realTxsMonthly.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const totalOutcome = realTxsMonthly.filter(t => t.type === 'outcome').reduce((s, t) => s + t.amount, 0);
         const savingsRate = totalIncome > 0 ? Math.round(((totalIncome - totalOutcome) / totalIncome) * 100) : 0;
 
         return NextResponse.json({

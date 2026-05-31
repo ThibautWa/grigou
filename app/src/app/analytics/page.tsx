@@ -569,7 +569,7 @@ export default function AnalyticsPage() {
                                         onChange={setCumulGranularity}
                                         options={[
                                             { value: 'monthly', label: 'Mensuel' },
-                                            { value: 'weekly', label: 'Hebdo' },
+                                            { value: 'weekly', label: 'Journalier' },
                                         ]}
                                     />
                                     <SegmentedControl<CumulativeChartType>
@@ -593,7 +593,7 @@ export default function AnalyticsPage() {
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} />
+                                        <XAxis dataKey="month" tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
                                         <Tooltip content={<CustomTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
@@ -611,7 +611,7 @@ export default function AnalyticsPage() {
                                 ) : (
                                     <LineChart data={cumulData}>
                                         <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} />
+                                        <XAxis dataKey="month" tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
                                         <Tooltip content={<CustomTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />

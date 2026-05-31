@@ -652,6 +652,36 @@ export default function Home() {
                     predictionDate={predictionDate}
                   />
                 </>
+              ) : viewMode === 'period' ? (
+                /* =============================================
+                   FIX : Mode période — Solde en fin de période
+                   Avant ce fix, cette branche retournait null.
+                   stats.cumulativeBalance contient le solde réel
+                   (initial_balance + toutes transactions jusqu'à endDate)
+                ============================================= */
+                <>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                    💰 Solde au {format(new Date(dateRange.end), 'dd MMMM yyyy', { locale: fr })}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
+                        <span className="text-xs text-gray-400">
+                          au {format(new Date(dateRange.end), 'dd/MM/yyyy')}
+                        </span>
+                      </div>
+                      <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                        {stats.cumulativeBalance.toFixed(2)} €
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Solde initial ({derivedInitialBalance.toFixed(2)} €)
+                        {stats.balance >= 0 ? ' + ' : ' − '}
+                        flux de la période ({Math.abs(stats.balance).toFixed(2)} €)
+                      </p>
+                    </div>
+                  </div>
+                </>
               ) : null
             )}
 
