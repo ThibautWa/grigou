@@ -43,7 +43,7 @@ interface Summary {
 }
 
 interface WeeklyData {
-    month: string;      // label "14 Jan"
+    month: string;
     monthKey: string;
     cumulative: number;
     balance: number;
@@ -63,6 +63,15 @@ interface Wallet {
     is_default?: boolean;
     permission?: string;
     owner_name?: string;
+}
+
+interface Transaction {
+    id: number;
+    type: 'income' | 'outcome';
+    amount: number;
+    description: string | null;
+    date: string;
+    category: string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -263,6 +272,7 @@ export default function AnalyticsPage() {
     const [walletId, setWalletId] = useState<number | null>(null);
     const [months, setMonths] = useState<number>(12);
     const [data, setData] = useState<AnalyticsData | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -271,6 +281,7 @@ export default function AnalyticsPage() {
     const [showPredictedBars, setShowPredictedBars] = useState(true);
     const [cumulChartType, setCumulChartType] = useState<CumulativeChartType>('area');
     const [cumulGranularity, setCumulGranularity] = useState<CumulativeGranularity>('monthly');
+    const [showTxOnHover, setShowTxOnHover] = useState(false);
     const [netChartType, setNetChartType] = useState<NetBalanceChartType>('bar');
     const [catTab, setCatTab] = useState<'outcome' | 'income'>('outcome');
     const [catDisplay, setCatDisplay] = useState<CatDisplayType>('pie');
@@ -294,9 +305,13 @@ export default function AnalyticsPage() {
         setLoading(true);
         setError('');
         try {
-            const res = await fetch(`/api/analytics?walletId=${walletId}&months=${months}`);
-            if (!res.ok) throw new Error();
-            setData(await res.json());
+            const [analyticsRes, txRes] = await Promise.all([
+                fetch(`/api/analytics?walletId=${walletId}&months=${months}`),
+                fetch(`/api/transactions?walletId=${walletId}`),
+            ]);
+            if (!analyticsRes.ok) throw new Error();
+            setData(await analyticsRes.json());
+            setTransactions(txRes.ok ? await txRes.json() : []);
         } catch {
             setError('Erreur lors du chargement des données');
         } finally {
@@ -308,11 +323,80 @@ export default function AnalyticsPage() {
 
     const s = data?.summary;
 
-    // ── Cumulative data — use precomputed data from API ──
+    // ── Cumulative data ──
     const cumulData = (() => {
         if (!data) return [];
         return cumulGranularity === 'monthly' ? data.monthly : data.weekly;
     })();
+
+    // ── Tooltip dédié pour le solde cumulé avec transactions au survol ──
+    const CumulativeTooltip = ({ active, payload, label }: any) => {
+        if (!active || !payload?.length) return null;
+        const value = payload[0]?.value;
+
+        const point = cumulData.find((d: any) => d.month === label);
+        const dateKey = point?.monthKey ?? label;
+
+        const dayTx = showTxOnHover
+            ? transactions.filter(t => t.date?.startsWith(dateKey))
+            : [];
+
+        return (
+            <div style={{
+                background: GD.card2,
+                border: `1px solid ${GD.border2}`,
+                borderRadius: 10,
+                padding: '0.75rem 1rem',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                fontSize: '0.8125rem',
+                maxWidth: 300,
+                minWidth: 180,
+            }}>
+                <p style={{ color: GD.text, fontWeight: 600, marginBottom: 6 }}>{label}</p>
+                <p style={{ color: PURPLE_C, fontWeight: 700, margin: 0, marginBottom: showTxOnHover ? 8 : 0 }}>
+                    Solde : {fmtFull(value)}
+                </p>
+                {showTxOnHover && dayTx.length > 0 && (
+                    <div style={{ borderTop: `1px solid ${GD.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {dayTx.map((t, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                <span style={{
+                                    color: GD.text2,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: 170,
+                                    fontSize: '0.75rem',
+                                }}>
+                                    {t.description || <em style={{ color: GD.muted }}>Sans description</em>}
+                                </span>
+                                <span style={{
+                                    color: t.type === 'income' ? INCOME_C : EXPENSE_C,
+                                    fontWeight: 600,
+                                    flexShrink: 0,
+                                    fontSize: '0.75rem',
+                                }}>
+                                    {t.type === 'income' ? '+' : '−'}{fmtFull(t.amount)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {showTxOnHover && dayTx.length === 0 && (
+                    <p style={{
+                        color: GD.muted,
+                        borderTop: `1px solid ${GD.border}`,
+                        paddingTop: 8,
+                        margin: 0,
+                        fontStyle: 'italic',
+                        fontSize: '0.75rem',
+                    }}>
+                        Aucune transaction ce jour
+                    </p>
+                )}
+            </div>
+        );
+    };
 
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
@@ -580,6 +664,28 @@ export default function AnalyticsPage() {
                                             { value: 'line', label: '— Ligne' },
                                         ]}
                                     />
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.375rem',
+                                        fontSize: '0.75rem',
+                                        color: showTxOnHover ? GD.text : GD.text2,
+                                        cursor: 'pointer',
+                                        userSelect: 'none',
+                                        padding: '4px 8px',
+                                        borderRadius: 6,
+                                        border: `1px solid ${showTxOnHover ? PURPLE_C : GD.border}`,
+                                        background: showTxOnHover ? 'rgba(99,102,241,0.12)' : 'transparent',
+                                        transition: 'all 0.15s',
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={showTxOnHover}
+                                            onChange={e => setShowTxOnHover(e.target.checked)}
+                                            style={{ accentColor: PURPLE_C, width: 13, height: 13 }}
+                                        />
+                                        Transactions
+                                    </label>
                                 </>
                             }
                         >
@@ -595,7 +701,7 @@ export default function AnalyticsPage() {
                                         <CartesianGrid {...gridStyle} />
                                         <XAxis dataKey="month" tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
-                                        <Tooltip content={<CustomTooltip />} />
+                                        <Tooltip content={<CumulativeTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
                                         <Area
                                             type="monotone"
@@ -613,7 +719,7 @@ export default function AnalyticsPage() {
                                         <CartesianGrid {...gridStyle} />
                                         <XAxis dataKey="month" tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
-                                        <Tooltip content={<CustomTooltip />} />
+                                        <Tooltip content={<CumulativeTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
                                         <Line
                                             type="monotone"
