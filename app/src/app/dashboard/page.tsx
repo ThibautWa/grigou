@@ -587,13 +587,15 @@ export default function Home() {
                 </div>
 
                 {/* Bloc dépliable — détail des transactions de la période */}
-                <CalcDetail
-                  title={calcFluxTitle}
-                  transactions={displayedTransactions}
-                  totalIncome={displayedMonthlyStats.totalIncome}
-                  totalOutcome={displayedMonthlyStats.totalOutcome}
-                  balance={displayedMonthlyStats.balance}
-                />
+                {viewMode !== 'period' && (
+                  <CalcDetail
+                    title={calcFluxTitle}
+                    transactions={displayedTransactions}
+                    totalIncome={displayedMonthlyStats.totalIncome}
+                    totalOutcome={displayedMonthlyStats.totalOutcome}
+                    balance={displayedMonthlyStats.balance}
+                  />
+                )}
               </>
             )}
 
@@ -606,7 +608,7 @@ export default function Home() {
                   <h3 className="text-lg font-semibold text-gray-700 mb-3">
                     💰 Solde actuel
                     <span className="text-gray-500 ml-1 text-sm">
-                      ( {format(new Date(), 'EEEE dd MMMM', { locale: fr })} )
+                      tsc                     ( {format(new Date(), 'EEEE dd MMMM', { locale: fr })} )
                     </span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
