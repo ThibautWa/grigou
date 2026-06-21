@@ -393,30 +393,54 @@ export default function Home() {
 
   const displayedMonthlyStats = viewMode === 'period' ? stats : monthlyStats;
 
-  // Transactions affichées : réelles + prédites (fusionnées et triées)
-  const displayedTransactions = (viewMode === 'current' || viewMode === 'period')
-    ? [
-      ...transactions,
-      ...predictions.map((p, index) => {
-        const cat = categories.find(c => c.name === p.category);
-        return {
-          id: -(index + 1),
-          type: p.type,
-          amount: p.amount,
-          description: p.description,
-          category: p.category,
-          category_id: cat?.id ?? null,
-          category_name: cat?.name ?? p.category,
-          category_icon: cat?.icon ?? null,
-          category_color: cat?.color ?? null,
-          date: p.date,
-          is_recurring: true,
-          recurrence_type: 'Mensuel',
-          is_predicted: true,
-        } as Transaction;
-      }),
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    : transactions;
+  // Transactions fusionnées : réelles + prédites (current / period / prediction)
+  const mergedTransactions: Transaction[] =
+    (viewMode === 'current' || viewMode === 'period' || viewMode === 'prediction')
+      ? [
+        ...transactions,
+        ...predictions.map((p, index) => {
+          const cat = categories.find(c => c.name === p.category);
+          return {
+            id: -(index + 1),
+            type: p.type,
+            amount: p.amount,
+            description: p.description,
+            category: p.category,
+            category_id: cat?.id ?? null,
+            category_name: cat?.name ?? p.category,
+            category_icon: cat?.icon ?? null,
+            category_color: cat?.color ?? null,
+            date: p.date,
+            is_recurring: true,
+            recurrence_type: 'Mensuel',
+            is_predicted: true,
+          } as Transaction;
+        }),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      : transactions;
+
+  // Liste affichée :
+  //  - en mode prédiction, le bloc cumulé ne montre que ce qui précède la date de prédiction
+  //  - sinon, la liste fusionnée complète
+  const displayedTransactions: Transaction[] =
+    viewMode === 'prediction'
+      ? mergedTransactions.filter(t => t.date.substring(0, 10) <= predictionDate)
+      : mergedTransactions;
+
+  // Transactions du seul mois sélectionné (bloc « Détail — Mois de ... »)
+  // En mode prédiction on filtre sur le mois de la date de prédiction ;
+  // dans les autres modes la liste est déjà bornée au bon intervalle.
+  const monthDetailTransactions: Transaction[] =
+    viewMode === 'prediction'
+      ? (() => {
+        const monthStart = format(startOfMonth(new Date(predictionDate)), 'yyyy-MM-dd');
+        const monthEnd = format(endOfMonth(new Date(predictionDate)), 'yyyy-MM-dd');
+        return mergedTransactions.filter(t => {
+          const d = t.date.substring(0, 10);
+          return d >= monthStart && d <= monthEnd;
+        });
+      })()
+      : displayedTransactions;
 
   // Solde initial déduit depuis les valeurs cumulées
   const derivedInitialBalance = stats
@@ -590,7 +614,7 @@ export default function Home() {
                 {viewMode !== 'period' && (
                   <CalcDetail
                     title={calcFluxTitle}
-                    transactions={displayedTransactions}
+                    transactions={monthDetailTransactions}
                     totalIncome={displayedMonthlyStats.totalIncome}
                     totalOutcome={displayedMonthlyStats.totalOutcome}
                     balance={displayedMonthlyStats.balance}
@@ -624,7 +648,7 @@ export default function Home() {
               ) : viewMode === 'prediction' ? (
                 <>
                   <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                    💰 Solde actuel prévisionnel
+                    💰 Solde prévisionnel
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                     <StatsCard walletId={selectedWalletId!} title="Revenus cumulés" amount={stats.cumulativeIncome} type="income" icon="↗" />

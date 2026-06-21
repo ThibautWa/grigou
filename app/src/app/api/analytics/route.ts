@@ -96,7 +96,7 @@ function buildMonthlyBuckets(historyStart: Date, totalMonths: number, now: Date)
             start, end,
             income: 0, outcome: 0, balance: 0, cumulative: 0,
             predicted_income: 0, predicted_outcome: 0,
-            is_future: startOfMonth(d) > startOfMonth(addMonths(now, 1)),
+            is_future: startOfMonth(d) > startOfMonth(now),
         });
     }
     return buckets;
@@ -106,7 +106,7 @@ function buildDailyBuckets(historyStart: Date, totalMonths: number, now: Date): 
     const buckets: Bucket[] = [];
     const rangeEnd = endOfMonth(addMonths(historyStart, totalMonths - 1));
     let day = startOfDay(historyStart);
-    const futureThreshold = endOfMonth(addMonths(now, 1));
+    const futureThreshold = startOfDay(now);
 
     while (day <= rangeEnd) {
         const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
@@ -154,17 +154,13 @@ function fillBuckets(
         else bucket.predicted_outcome += pred.amount;
     }
 
-    // Compute net balance and running cumulative
+    // Compute net balance and running cumulative.
+    // On somme toujours réel + prévisions récurrentes. Les prédictions ne sont
+    // générées que pour des dates strictement postérieures à aujourd'hui et les
+    // occurrences futures ne sont jamais stockées en base : aucun double comptage.
     let cumulative = anchorBalance;
     for (const b of buckets) {
-        if (b.is_future) {
-            // Semaine/mois entièrement futur : uniquement les prévisions récurrentes
-            b.balance = b.predicted_income - b.predicted_outcome;
-        } else {
-            // Semaine/mois passé ou en cours : uniquement les transactions réelles
-            // Les prédictions futures dans la même semaine seront dans les buckets suivants
-            b.balance = b.income - b.outcome;
-        }
+        b.balance = (b.income - b.outcome) + (b.predicted_income - b.predicted_outcome);
         cumulative += b.balance;
         b.cumulative = cumulative;
     }
@@ -255,12 +251,13 @@ export async function GET(request: NextRequest) {
             [parseInt(walletId), format(forecastEnd, 'yyyy-MM-dd'), format(historyStart, 'yyyy-MM-dd')],
         );
 
-        // Les prédictions commencent au début du mois+2 pour éviter
-        // de doubler les transactions saisies manuellement dans le futur proche
-        const tomorrow = startOfMonth(addMonths(now, 2));
+        // Les prédictions couvrent toutes les occurrences récurrentes strictement
+        // postérieures à aujourd'hui. Les occurrences passées/du jour sont déjà des
+        // lignes réelles (ancrage) ; les occurrences futures ne sont jamais stockées.
+        const predictionStart = startOfDay(addDays(now, 1));
         const allPredictions: TxEntry[] = [];
         for (const tx of recurResult.rows) {
-            allPredictions.push(...generatePredictionsForRange(tx, tomorrow, forecastEnd));
+            allPredictions.push(...generatePredictionsForRange(tx, predictionStart, forecastEnd));
         }
 
         // ── 5. Build monthly buckets ──────────────────────────────────────────────
