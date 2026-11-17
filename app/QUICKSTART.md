@@ -1,87 +1,61 @@
-# 🚀 Démarrage Rapide
+# 🚀 Démarrage rapide (environnement local)
 
-## En 3 étapes simples :
+L'environnement local utilise **la même image Docker que la prod** (`docker/Dockerfile.prod`)
+avec une base PostgreSQL locale. Toutes les commandes se lancent **depuis la racine du dépôt**.
 
-### 1️⃣ Lancer l'application
+## Prérequis
 
-```bash
-docker-compose up --build
-```
+- Docker avec le plugin `docker compose` (v2)
+- Un fichier `app/.env.local` (SMTP, `NEXTAUTH_SECRET`, …)
 
-### 2️⃣ Ouvrir votre navigateur
-
-Allez sur : **http://localhost:3000**
-
-### 3️⃣ C'est tout ! 🎉
-
-L'application est prête avec des données d'exemple.
-
----
-
-## ⚡ Script de démarrage automatique
-
-Vous pouvez aussi utiliser le script :
+## Lancer
 
 ```bash
-./start.sh
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
----
+Puis ouvrir **http://localhost:3000**.
 
-## 📝 Commandes utiles
+Au premier lancement (volume vide), la base est créée à partir de `docker/local-init/` :
+schéma de la prod + catégories système, sans aucune donnée utilisateur.
 
-### Arrêter l'application
+> Le volume `git_postgres_data` est déclaré `external`. S'il n'existe pas encore :
+> `docker volume create git_postgres_data`
+
+## Développement avec hot reload
+
 ```bash
-docker-compose down
+docker compose -f docker-compose.local.yml up -d db   # base de données seule
+cd app && npm install && npm run dev                   # http://localhost:3000
 ```
 
-### Voir les logs
+`app/.env.local` doit alors contenir
+`DATABASE_URL=postgresql://grigou_user:grigou_password@localhost:5432/grigou_db`.
+
+## Commandes utiles
+
 ```bash
-docker-compose logs -f
+docker compose -f docker-compose.local.yml logs -f app   # logs
+docker compose -f docker-compose.local.yml ps            # état
+docker compose -f docker-compose.local.yml down          # arrêter (données conservées)
+docker exec -it grigou_local_db psql -U grigou_user -d grigou_db   # console SQL
 ```
 
-### Redémarrer
+Réinitialiser la base (⚠️ supprime toutes les données locales) :
+
 ```bash
-docker-compose restart
+docker compose -f docker-compose.local.yml down
+docker volume rm git_postgres_data && docker volume create git_postgres_data
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
-### Supprimer tout (y compris les données)
-```bash
-docker-compose down -v
-```
+## Problèmes courants
 
----
-
-## 🐛 Problèmes courants
-
-### Port 3000 déjà utilisé ?
-Modifiez le port dans `docker-compose.yml` :
-```yaml
-ports:
-  - "3001:3000"  # Utilisez 3001 à la place
-```
-
-### Port 5432 déjà utilisé ?
-Modifiez le port PostgreSQL dans `docker-compose.yml` :
-```yaml
-ports:
-  - "5433:5432"  # Utilisez 5433 à la place
-```
-
-### Les conteneurs ne démarrent pas ?
-```bash
-# Nettoyez tout et recommencez
-docker-compose down -v
-docker-compose up --build
-```
-
----
-
-## 🎯 Prochaines étapes
-
-1. Explorez l'interface
-2. Ajoutez vos propres transactions
-3. Changez les périodes pour voir l'évolution
-4. Personnalisez les catégories selon vos besoins
-
-Bon budget ! 💰
+- **Port 3000 ou 5432 déjà utilisé** : une autre stack tourne (`docker ps`).
+  Arrêtez-la, ou changez le port hôte dans `docker-compose.local.yml`
+  (`"127.0.0.1:3001:3000"`).
+- **`/api/health` renvoie 307** : normal, le middleware d'authentification redirige
+  vers `/login`. C'est pareil en prod.
+- **Dossiers vides `src/`, `public/`, `init.sql/` appartenant à `root` à la racine** :
+  restes de l'ancienne configuration (Docker crée les bind mounts manquants).
+  Supprimez-les avec `docker run --rm -v "$PWD":/w alpine rmdir /w/src /w/public /w/init.sql`.

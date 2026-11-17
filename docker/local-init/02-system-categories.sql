@@ -1,0 +1,26 @@
+-- Catégories système (user_id NULL) copiées depuis la prod.
+INSERT INTO public.categories VALUES (1, 'Alimentation', 'outcome', '🛒', '#22c55e', NULL, true, true, 1, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (2, 'Restaurant', 'outcome', '🍽️', '#f97316', NULL, true, true, 2, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (3, 'Transport', 'outcome', '🚗', '#3b82f6', NULL, true, true, 3, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (4, 'Logement', 'outcome', '🏠', '#8b5cf6', NULL, true, true, 4, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (5, 'Factures', 'outcome', '📄', '#64748b', NULL, true, true, 5, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (6, 'Santé', 'outcome', '🏥', '#ef4444', NULL, true, true, 6, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (7, 'Loisirs', 'outcome', '🎮', '#ec4899', NULL, true, true, 7, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (8, 'Shopping', 'outcome', '🛍️', '#f59e0b', NULL, true, true, 8, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (9, 'Éducation', 'outcome', '📚', '#06b6d4', NULL, true, true, 9, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (10, 'Voyages', 'outcome', '✈️', '#14b8a6', NULL, true, true, 10, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (11, 'Abonnements', 'outcome', '📱', '#6366f1', NULL, true, true, 11, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (12, 'Cadeaux', 'outcome', '🎁', '#d946ef', NULL, true, true, 12, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (13, 'Animaux', 'outcome', '🐾', '#a855f7', NULL, true, true, 13, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (14, 'Autre dépense', 'outcome', '📦', '#94a3b8', NULL, true, true, 99, '2026-02-03 00:30:32.397508+01', '2026-02-03 00:30:32.397508+01');
+INSERT INTO public.categories VALUES (15, 'Salaire', 'income', '💰', '#22c55e', NULL, true, true, 1, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (16, 'Freelance', 'income', '💼', '#3b82f6', NULL, true, true, 2, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (17, 'Investissements', 'income', '📈', '#8b5cf6', NULL, true, true, 3, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (18, 'Remboursement', 'income', '🔄', '#f97316', NULL, true, true, 4, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (19, 'Ventes', 'income', '🏷️', '#ec4899', NULL, true, true, 5, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (20, 'Cadeaux reçus', 'income', '🎁', '#d946ef', NULL, true, true, 6, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (21, 'Allocations', 'income', '🏛️', '#64748b', NULL, true, true, 7, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (22, 'Loyer perçu', 'income', '🏠', '#14b8a6', NULL, true, true, 8, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (23, 'Autre revenu', 'income', '💵', '#94a3b8', NULL, true, true, 99, '2026-02-03 00:30:32.403251+01', '2026-02-03 00:30:32.403251+01');
+INSERT INTO public.categories VALUES (24, 'Ajustement', 'both', '⚖️', '#6366f1', NULL, true, true, 100, '2026-02-03 00:30:32.523574+01', '2026-02-03 00:30:32.523574+01');
+SELECT setval('public.categories_id_seq', (SELECT MAX(id) FROM public.categories));

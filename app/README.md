@@ -18,47 +18,28 @@ Application web de gestion de budget personnel développée avec Next.js 15 et P
 
 ## 🛠️ Installation et Lancement
 
-1. **Cloner le projet** (ou créer les fichiers)
-
-2. **Lancer l'application avec Docker Compose** :
+Depuis la racine du dépôt :
 
 ```bash
-docker-compose up --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
-3. **Accéder à l'application** :
+Puis ouvrez [http://localhost:3000](http://localhost:3000).
 
-Ouvrez votre navigateur à l'adresse : [http://localhost:3000](http://localhost:3000)
+Détails, hot reload et dépannage : voir [QUICKSTART.md](QUICKSTART.md).
 
 ## 🏗️ Architecture
 
 ```
-grigou/
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── transactions/
-│   │   │   │   ├── route.ts
-│   │   │   │   └── [id]/route.ts
-│   │   │   └── stats/
-│   │   │       └── route.ts
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── globals.css
-│   ├── components/
-│   │   ├── TransactionForm.tsx
-│   │   ├── TransactionList.tsx
-│   │   ├── BudgetChart.tsx
-│   │   └── StatsCard.tsx
-│   └── lib/
-│       └── db.ts
-├── docker-compose.yml
-├── Dockerfile
-├── init.sql
-├── package.json
-├── next.config.js
-├── tsconfig.json
-└── tailwind.config.js
+grigou/                        (racine du dépôt)
+├── app/                       Application Next.js (src/, public/, migrations/)
+├── docker/
+│   ├── Dockerfile.prod        Image utilisée en prod ET en local
+│   ├── local-init/            Initialisation d'une base locale vide
+│   └── grigou.conf, nginx.conf  Configuration nginx de la prod
+├── docker-compose.local.yml   Environnement local
+├── docker-compose.prod.yml    Production (serveur)
+└── .github/workflows/         CI/CD (déploiement automatique sur main)
 ```
 
 ## 🗄️ Base de Données
@@ -84,7 +65,7 @@ La base de données PostgreSQL est automatiquement initialisée avec :
 
 ### Variables d'environnement
 
-Les variables sont configurées dans le `docker-compose.yml` :
+En local, les variables sont lues depuis `app/.env.local` (voir `docker-compose.local.yml`) :
 
 - **DATABASE_URL** : URL de connexion PostgreSQL
 - **POSTGRES_USER** : Utilisateur de la base de données (par défaut: `grigou_user`)
@@ -111,31 +92,16 @@ Les variables sont configurées dans le `docker-compose.yml` :
 ## 🛑 Arrêter l'application
 
 ```bash
-docker-compose down
-```
-
-Pour supprimer également les volumes (données) :
-
-```bash
-docker-compose down -v
+docker compose -f docker-compose.local.yml down
 ```
 
 ## 🔄 Développement
 
-Pour développer en mode local (avec hot-reload) :
+Hot reload : lancez uniquement la base, puis le serveur de dev Next.js :
 
 ```bash
-# Installer les dépendances
-npm install
-
-# Lancer en mode développement avec Turbopack
-npm run dev
-```
-
-Assurez-vous que PostgreSQL est en cours d'exécution :
-
-```bash
-docker-compose up db
+docker compose -f docker-compose.local.yml up -d db
+cd app && npm install && npm run dev
 ```
 
 ## 📝 Technologies Utilisées
@@ -143,7 +109,7 @@ docker-compose up db
 - **Next.js 15** - Framework React avec Turbopack
 - **React 19** - Bibliothèque UI
 - **TypeScript** - Typage statique
-- **PostgreSQL 15** - Base de données
+- **PostgreSQL 16** (prod) / 15 (local) - Base de données
 - **Tailwind CSS** - Styling
 - **Recharts** - Graphiques
 - **Docker & Docker Compose** - Containerisation

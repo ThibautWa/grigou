@@ -1,0 +1,68 @@
+# ==============================================================================
+# Docker Compose - Environnement local (identique à la prod) - Grigou
+# ==============================================================================
+# Même image que la prod (docker/Dockerfile.prod), base de données locale.
+#
+#   docker compose -f docker-compose.local.yml up -d --build
+#   -> http://localhost:3000
+#
+# Variables : app/.env.local (DATABASE_URL et NEXTAUTH_URL sont surchargées ci-dessous)
+# Une base vide est initialisée avec docker/local-init/ (schéma prod +
+# catégories système, sans données utilisateur). Le volume existant est réutilisé tel quel.
+#
+# Pour le hot reload : lancer uniquement la db, puis `cd app && npm run dev`
+#   docker compose -f docker-compose.local.yml up -d db
+# ==============================================================================
+
+name: grigou-local
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: ../docker/Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_APP_VERSION=local
+    image: grigou-app:local
+    container_name: grigou_local_app
+    restart: unless-stopped
+    env_file:
+      - app/.env.local
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://grigou_user:grigou_password@db:5432/grigou_db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - AUTH_TRUST_HOST=true
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    # 15 (et non 16 comme en prod) : le volume local existant a été créé avec PG15
+    image: postgres:15-alpine
+    container_name: grigou_local_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=grigou_db
+      - POSTGRES_USER=grigou_user
+      - POSTGRES_PASSWORD=grigou_password
+      - TZ=Europe/Paris
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/local-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grigou_user -d grigou_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+    # Volume de l'ancien environnement local (données de test conservées)
+    external: true
+    name: git_postgres_data
