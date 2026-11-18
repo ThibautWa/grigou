@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   CalendarClock, CalendarRange, ChevronDown, ChevronLeft, ChevronRight,
@@ -539,16 +539,16 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-3">
             {viewMode === 'period' && (
               <div className="flex items-center gap-2">
-                {/* The range can't be inverted: moving one bound past the other drags it along */}
+                {/* The range can't be inverted: moving one bound past the other moves it too (any date, past or future) */}
                 <input
                   type="date"
                   aria-label="Date de début"
                   value={dateRange.start}
-                  max={dateRange.end}
                   onChange={(e) => {
                     const start = e.target.value;
                     if (!start) return;
-                    setDateRange((r) => ({ start, end: start > r.end ? start : r.end }));
+                    // Start after the end (e.g. a future month): the end moves to the end of that month
+                    setDateRange((r) => ({ start, end: start > r.end ? format(endOfMonth(parseISO(start)), 'yyyy-MM-dd') : r.end }));
                   }}
                   className="field h-9 w-auto !py-1"
                 />
@@ -557,11 +557,11 @@ export default function Home() {
                   type="date"
                   aria-label="Date de fin"
                   value={dateRange.end}
-                  min={dateRange.start}
                   onChange={(e) => {
                     const end = e.target.value;
                     if (!end) return;
-                    setDateRange((r) => ({ start: end < r.start ? end : r.start, end }));
+                    // End before the start: the start moves to the beginning of that month
+                    setDateRange((r) => ({ start: end < r.start ? format(startOfMonth(parseISO(end)), 'yyyy-MM-dd') : r.start, end }));
                   }}
                   className="field h-9 w-auto !py-1"
                 />
