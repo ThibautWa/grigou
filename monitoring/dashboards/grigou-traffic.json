@@ -842,15 +842,14 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | status < 400 | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
-          "legendFormat": "",
+          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status < 400 | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
+          "legendFormat": "{{uri}}",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "displayName": "${__field.labels.uri}",
           "color": {
             "mode": "continuous-BlYlRd"
           },
@@ -872,15 +871,45 @@
         "showUnfilled": true,
         "valueMode": "text",
         "namePlacement": "left",
-        "sizing": "auto",
+        "sizing": "manual",
         "reduceOptions": {
+          "values": true,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": "/^Last/",
+          "limit": 15
+        },
+        "minVizHeight": 18,
+        "maxVizHeight": 26,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 13
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "seriesToRows",
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Last *",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "bargauge",
@@ -905,14 +934,13 @@
             "uid": "${loki}"
           },
           "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri =~ \"/api/.*\" [$__range])))",
-          "legendFormat": "",
+          "legendFormat": "{{uri}}",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "displayName": "${__field.labels.uri}",
           "color": {
             "mode": "continuous-BlYlRd"
           },
@@ -934,15 +962,45 @@
         "showUnfilled": true,
         "valueMode": "text",
         "namePlacement": "left",
-        "sizing": "auto",
+        "sizing": "manual",
         "reduceOptions": {
+          "values": true,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": "/^Last/",
+          "limit": 15
+        },
+        "minVizHeight": 18,
+        "maxVizHeight": 26,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 13
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "seriesToRows",
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Last *",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "bargauge",
@@ -967,14 +1025,13 @@
             "uid": "${loki}"
           },
           "expr": "topk(15, sum by (referer) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, referer | host=~\"(www\\\\.)?grigou\\\\.fr\" | referer != \"\" | referer !~ \".*grigou\\\\.fr.*\" [$__range])))",
-          "legendFormat": "",
+          "legendFormat": "{{referer}}",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "displayName": "${__field.labels.referer}",
           "color": {
             "mode": "continuous-BlYlRd"
           },
@@ -996,15 +1053,45 @@
         "showUnfilled": true,
         "valueMode": "text",
         "namePlacement": "left",
-        "sizing": "auto",
+        "sizing": "manual",
         "reduceOptions": {
+          "values": true,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": "/^Last/",
+          "limit": 15
+        },
+        "minVizHeight": 18,
+        "maxVizHeight": 26,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 13
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "seriesToRows",
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Last *",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "bargauge",
@@ -1028,15 +1115,14 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status | host=~\"(www\\\\.)?grigou\\\\.fr\" | status >= 400 | status < 500 [$__range])))",
-          "legendFormat": "",
+          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status | label_format uri=`{{ if .uri }}{{ .uri }}{{ else }}(requête invalide){{ end }}` | host=~\"(www\\\\.)?grigou\\\\.fr\" | status >= 400 | status < 500 [$__range])))",
+          "legendFormat": "{{uri}}",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "displayName": "${__field.labels.uri}",
           "color": {
             "mode": "continuous-BlYlRd"
           },
@@ -1058,15 +1144,45 @@
         "showUnfilled": true,
         "valueMode": "text",
         "namePlacement": "left",
-        "sizing": "auto",
+        "sizing": "manual",
         "reduceOptions": {
+          "values": true,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": "/^Last/",
+          "limit": 15
+        },
+        "minVizHeight": 18,
+        "maxVizHeight": 26,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 13
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "seriesToRows",
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Last *",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "bargauge",
@@ -1091,14 +1207,13 @@
             "uid": "${loki}"
           },
           "expr": "topk(15, sum by (remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" [$__range])))",
-          "legendFormat": "",
+          "legendFormat": "{{remote_addr}}",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "displayName": "${__field.labels.remote_addr}",
           "color": {
             "mode": "continuous-BlYlRd"
           },
@@ -1120,15 +1235,45 @@
         "showUnfilled": true,
         "valueMode": "text",
         "namePlacement": "left",
-        "sizing": "auto",
+        "sizing": "manual",
         "reduceOptions": {
+          "values": true,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": "/^Last/",
+          "limit": 15
+        },
+        "minVizHeight": 18,
+        "maxVizHeight": 26,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 13
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "seriesToRows",
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Last *",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "bargauge",
@@ -1152,15 +1297,14 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, quantile_over_time(0.95, {container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, request_time | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*\" | unwrap request_time [$__range]) by (uri))",
-          "legendFormat": "",
+          "expr": "topk(15, quantile_over_time(0.95, {container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, request_time | label_format uri=`{{ if .uri }}{{ .uri }}{{ else }}(requête invalide){{ end }}` | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*\" | unwrap request_time [$__range]) by (uri))",
+          "legendFormat": "{{uri}}",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "displayName": "${__field.labels.uri}",
           "color": {
             "mode": "continuous-BlYlRd"
           },
@@ -1182,15 +1326,45 @@
         "showUnfilled": true,
         "valueMode": "text",
         "namePlacement": "left",
-        "sizing": "auto",
+        "sizing": "manual",
         "reduceOptions": {
+          "values": true,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": "/^Last/",
+          "limit": 15
+        },
+        "minVizHeight": 18,
+        "maxVizHeight": 26,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 13
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "lastNotNull"
+            ],
+            "mode": "seriesToRows",
+            "includeTimeField": false
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Last *",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "row",
