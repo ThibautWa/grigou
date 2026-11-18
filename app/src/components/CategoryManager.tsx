@@ -33,7 +33,7 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
     <form onSubmit={onSubmit} className="space-y-4">
       {/* Nom */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="field-label">
           Nom de la catégorie *
         </label>
         <input
@@ -41,14 +41,14 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
           required
           value={formData.name}
           onChange={(e) => onFormDataChange({ ...formData, name: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="field"
           placeholder="Ex: Épargne, Courses bio..."
         />
       </div>
 
       {/* Type */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="field-label">
           Type de transaction
         </label>
         <div className="flex gap-2">
@@ -59,11 +59,11 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
               onClick={() => onFormDataChange({ ...formData, type })}
               className={`flex-1 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${formData.type === type
                   ? type === 'outcome'
-                    ? 'border-red-500 bg-red-50 text-red-700'
+                    ? 'border-negative bg-negative/10 text-negative'
                     : type === 'income'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-positive bg-positive/10 text-positive'
+                      : 'border-accent bg-accent/10 text-accent'
+                  : 'border-line hover:border-line-strong'
                 }`}
             >
               {CATEGORY_TYPE_LABELS[type]}
@@ -74,16 +74,16 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
 
       {/* Icône */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="field-label">
           Icône
         </label>
-        <div className="flex flex-wrap gap-1 p-2 border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+        <div className="flex flex-wrap gap-1 p-2 border border-line rounded-lg max-h-32 overflow-y-auto">
           {CATEGORY_ICONS.map((icon) => (
             <button
               key={icon}
               type="button"
               onClick={() => onFormDataChange({ ...formData, icon })}
-              className={`w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 transition-colors ${formData.icon === icon ? 'bg-blue-100 ring-2 ring-blue-500' : ''
+              className={`w-8 h-8 flex items-center justify-center rounded hover:bg-surface-2 transition-colors ${formData.icon === icon ? 'bg-accent/15 ring-2 ring-accent' : ''
                 }`}
             >
               {icon}
@@ -94,7 +94,7 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
 
       {/* Couleur */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="field-label">
           Couleur
         </label>
         <div className="flex flex-wrap gap-2">
@@ -103,7 +103,7 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
               key={color}
               type="button"
               onClick={() => onFormDataChange({ ...formData, color })}
-              className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${formData.color === color ? 'ring-2 ring-offset-2 ring-blue-500' : ''
+              className={`w-8 h-8 rounded-full transition-transform hover:scale-110 ${formData.color === color ? 'ring-2 ring-offset-2 ring-accent' : ''
                 }`}
               style={{ backgroundColor: color }}
             />
@@ -112,8 +112,8 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
       </div>
 
       {/* Aperçu */}
-      <div className="p-3 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600 mb-2">Aperçu :</p>
+      <div className="p-3 bg-surface-2 rounded-lg">
+        <p className="text-sm text-fg-muted mb-2">Aperçu :</p>
         <div className="flex items-center gap-2">
           <span
             className="w-8 h-8 flex items-center justify-center rounded"
@@ -122,9 +122,9 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
             {formData.icon}
           </span>
           <span className="font-medium">{formData.name || 'Nom de la catégorie'}</span>
-          <span className={`text-xs px-2 py-0.5 rounded ${formData.type === 'outcome' ? 'bg-red-100 text-red-700' :
-              formData.type === 'income' ? 'bg-green-100 text-green-700' :
-                'bg-blue-100 text-blue-700'
+          <span className={`text-xs px-2 py-0.5 rounded ${formData.type === 'outcome' ? 'bg-negative/15 text-negative' :
+              formData.type === 'income' ? 'bg-positive/15 text-positive' :
+                'bg-accent/15 text-accent'
             }`}>
             {CATEGORY_TYPE_LABELS[formData.type]}
           </span>
@@ -136,13 +136,13 @@ function CategoryForm({ isEdit = false, formData, onFormDataChange, onSubmit, on
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+          className="btn-secondary flex-1"
         >
           Annuler
         </button>
         <button
           type="submit"
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="btn-primary flex-1"
         >
           {isEdit ? 'Enregistrer' : 'Créer'}
         </button>
@@ -351,19 +351,19 @@ export default function CategoryManager({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-fg flex items-center gap-2">
+            <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
             Gérer les catégories
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-fg-subtle hover:text-fg transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -372,13 +372,13 @@ export default function CategoryManager({
         </div>
 
         {/* Tabs */}
-        <div className="px-6 pt-4 border-b border-gray-200">
+        <div className="px-6 pt-4 border-b border-line">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('outcome')}
               className={`pb-3 px-1 font-medium text-sm border-b-2 transition-colors ${activeTab === 'outcome'
-                  ? 'border-red-500 text-red-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-negative text-negative'
+                  : 'border-transparent text-fg-muted hover:text-fg'
                 }`}
             >
               Dépenses
@@ -386,8 +386,8 @@ export default function CategoryManager({
             <button
               onClick={() => setActiveTab('income')}
               className={`pb-3 px-1 font-medium text-sm border-b-2 transition-colors ${activeTab === 'income'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-positive text-positive'
+                  : 'border-transparent text-fg-muted hover:text-fg'
                 }`}
             >
               Revenus
@@ -399,20 +399,20 @@ export default function CategoryManager({
         <div className="flex-1 overflow-y-auto p-6">
           {/* Messages */}
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="mb-4 bg-negative/10 border border-negative/30 text-negative px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+            <div className="mb-4 bg-positive/10 border border-positive/30 text-positive px-4 py-3 rounded-lg">
               {success}
             </div>
           )}
 
           {/* Formulaire d'ajout/édition */}
           {(showAddForm || editingCategory) && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <div className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-lg">
+              <h3 className="mb-4 text-sm font-semibold text-fg">
                 {editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
               </h3>
               <CategoryForm
@@ -432,7 +432,7 @@ export default function CategoryManager({
                 setShowAddForm(true);
                 setFormData({ ...formData, type: activeTab });
               }}
-              className="w-full mb-6 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+              className="btn-primary mb-6 w-full"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -443,21 +443,21 @@ export default function CategoryManager({
 
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="h-8 w-8 border-4 border-line-strong border-t-blue-500 rounded-full animate-spin"></div>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Catégories personnalisées */}
               {userCategories.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  <h3 className="text-sm font-semibold text-fg-muted uppercase tracking-wider mb-3">
                     Mes catégories ({userCategories.length})
                   </h3>
                   <div className="space-y-2">
                     {userCategories.map((category) => (
                       <div
                         key={category.id}
-                        className="p-3 bg-white border border-gray-200 rounded-lg flex items-center justify-between hover:border-gray-300 transition-colors"
+                        className="p-3 bg-surface border border-line rounded-lg flex items-center justify-between hover:border-line-strong transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <span
@@ -467,8 +467,8 @@ export default function CategoryManager({
                             {category.icon}
                           </span>
                           <div>
-                            <p className="font-medium text-gray-900">{category.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="font-medium text-fg">{category.name}</p>
+                            <p className="text-xs text-fg-muted">
                               {CATEGORY_TYPE_LABELS[category.type as keyof typeof CATEGORY_TYPE_LABELS]}
                             </p>
                           </div>
@@ -476,7 +476,7 @@ export default function CategoryManager({
                         <div className="flex gap-1">
                           <button
                             onClick={() => startEdit(category)}
-                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-2 text-fg-muted hover:text-accent-hover hover:bg-accent/10 rounded transition-colors"
                             title="Modifier"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -485,7 +485,7 @@ export default function CategoryManager({
                           </button>
                           <button
                             onClick={() => handleDelete(category)}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-2 text-fg-muted hover:text-negative hover:bg-negative/10 rounded transition-colors"
                             title="Supprimer"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -501,14 +501,14 @@ export default function CategoryManager({
 
               {/* Catégories système */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <h3 className="text-sm font-semibold text-fg-muted uppercase tracking-wider mb-3">
                   Catégories standards ({systemCategories.length})
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {systemCategories.map((category) => (
                     <div
                       key={category.id}
-                      className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center gap-2"
+                      className="p-3 bg-surface-2 border border-line rounded-lg flex items-center gap-2"
                     >
                       <span
                         className="w-8 h-8 flex items-center justify-center rounded"
@@ -516,13 +516,13 @@ export default function CategoryManager({
                       >
                         {category.icon}
                       </span>
-                      <span className="text-sm font-medium text-gray-700 truncate">
+                      <span className="text-sm font-medium text-fg truncate">
                         {category.name}
                       </span>
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-fg-muted">
                   Les catégories standards ne peuvent pas être modifiées.
                 </p>
               </div>
@@ -531,10 +531,10 @@ export default function CategoryManager({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="px-6 py-4 border-t border-line bg-surface-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            className="btn-secondary"
           >
             Fermer
           </button>

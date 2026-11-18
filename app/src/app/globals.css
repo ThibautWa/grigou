@@ -2,62 +2,276 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Grigou design tokens
+   --------------------------------------------------------------------------
+   Colours are "R G B" triplets so Tailwind can apply its opacity modifiers
+   (bg-positive/10, border-accent/40, ...). See tailwind.config.js.
+   Theme is chosen by the data-theme attribute on <html>, set before the first
+   render by the script in app/layout.tsx (no flash).
+   ========================================================================== */
+@layer base {
+    :root,
+    [data-theme='light'] {
+        color-scheme: light;
 
-/* Animation pour le message de succès */
+        --canvas: 246 247 249;        /* page background         */
+        --surface: 255 255 255;       /* cards, panels           */
+        --surface-2: 241 243 246;     /* inset areas, hovers     */
+        --surface-3: 230 234 239;     /* pressed, skeletons      */
+        --line: 227 231 237;          /* default borders         */
+        --line-strong: 205 212 222;   /* inputs, separators      */
+
+        --fg: 15 23 42;               /* main text               */
+        --fg-muted: 71 85 105;        /* secondary text          */
+        --fg-subtle: 100 116 139;     /* hints, placeholders     */
+
+        --accent: 4 120 87;           /* Grigou emerald (AA on white) */
+        --accent-hover: 6 95 70;
+        --accent-fg: 255 255 255;     /* text on accent          */
+
+        --positive: 4 120 87;
+        --negative: 220 38 38;
+        --warning: 180 83 9;
+        --info: 14 116 144;           /* Grigou cyan             */
+
+        --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+        --shadow-pop: 0 10px 30px -8px rgb(15 23 42 / 0.18), 0 2px 6px rgb(15 23 42 / 0.06);
+        --overlay: 15 23 42;
+    }
+
+    [data-theme='dark'] {
+        color-scheme: dark;
+
+        --canvas: 10 14 23;           /* #0a0e17 */
+        --surface: 17 24 39;          /* #111827 */
+        --surface-2: 24 32 49;
+        --surface-3: 32 42 62;
+        --line: 31 41 58;
+        --line-strong: 46 59 80;
+
+        --fg: 241 245 249;
+        --fg-muted: 148 163 184;
+        --fg-subtle: 100 116 139;
+
+        --accent: 52 211 153;         /* #34d399 */
+        --accent-hover: 110 231 183;
+        --accent-fg: 4 30 22;
+
+        --positive: 52 211 153;
+        --negative: 248 113 113;
+        --warning: 251 191 36;
+        --info: 34 211 238;
+
+        --shadow-card: none;
+        --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(var(--line));
+        --overlay: 0 0 0;
+    }
+
+    html {
+        background-color: rgb(var(--canvas));
+    }
+
+    body {
+        @apply bg-canvas text-fg antialiased;
+        font-family: var(--font-dm-sans), system-ui, sans-serif;
+        font-feature-settings: 'cv11', 'ss01';
+    }
+
+    h1, h2, h3, h4 {
+        @apply text-fg tracking-tight;
+    }
+
+    ::selection {
+        background-color: rgb(var(--accent) / 0.25);
+    }
+
+    :focus-visible {
+        outline: 2px solid rgb(var(--accent));
+        outline-offset: 2px;
+    }
+
+    /* Native controls follow the theme */
+    input, select, textarea {
+        color: rgb(var(--fg));
+    }
+
+    input[type='checkbox'], input[type='radio'] {
+        accent-color: rgb(var(--accent));
+    }
+
+    input[type='date']::-webkit-calendar-picker-indicator {
+        opacity: 0.6;
+        cursor: pointer;
+    }
+
+    [data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+    }
+}
+
+/* ==========================================================================
+   Reusable components (keep the TSX readable)
+   ========================================================================== */
+@layer components {
+    .card {
+        @apply rounded-xl border border-line bg-surface;
+        box-shadow: var(--shadow-card);
+    }
+
+    .card-header {
+        @apply flex items-center justify-between gap-3 border-b border-line px-5 py-4;
+    }
+
+    .card-title {
+        @apply text-[15px] font-semibold text-fg;
+    }
+
+    .eyebrow {
+        @apply text-xs font-medium uppercase tracking-wider text-fg-subtle;
+    }
+
+    .amount {
+        font-variant-numeric: tabular-nums;
+        @apply font-semibold tracking-tight;
+    }
+
+    /* Buttons */
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-primary {
+        @apply btn bg-accent text-accent-fg hover:bg-accent-hover;
+    }
+
+    .btn-secondary {
+        @apply btn border border-line-strong bg-surface text-fg hover:bg-surface-2;
+    }
+
+    .btn-ghost {
+        @apply btn text-fg-muted hover:bg-surface-2 hover:text-fg;
+    }
+
+    .btn-danger {
+        @apply btn bg-negative text-white hover:opacity-90;
+    }
+
+    .btn-icon {
+        @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg;
+    }
+
+    /* Form fields */
+    .field-label {
+        @apply mb-1.5 block text-sm font-medium text-fg;
+    }
+
+    .field {
+        @apply block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-subtle transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60;
+    }
+
+    /* Segmented control (modes, filters) */
+    .segmented {
+        @apply inline-flex items-center gap-0.5 rounded-lg border border-line bg-surface-2 p-0.5;
+    }
+
+    .segmented > button {
+        @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg;
+    }
+
+    .segmented > button[aria-pressed='true'] {
+        @apply bg-surface text-fg;
+        box-shadow: var(--shadow-card);
+    }
+
+    [data-theme='dark'] .segmented > button[aria-pressed='true'] {
+        @apply bg-surface-3;
+    }
+
+    /* Badges */
+    .badge {
+        @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
+    }
+
+    /* Modals */
+    .modal-backdrop {
+        @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+        background-color: rgb(var(--overlay) / 0.5);
+        backdrop-filter: blur(2px);
+    }
+
+    .modal-panel {
+        @apply w-full rounded-xl border border-line bg-surface;
+        box-shadow: var(--shadow-pop);
+    }
+
+    .popover {
+        @apply rounded-xl border border-line bg-surface;
+        box-shadow: var(--shadow-pop);
+    }
+}
+
+/* ==========================================================================
+   Animations and small utilities
+   ========================================================================== */
 @keyframes fade-in {
-    from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-    }
+    from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .animate-fade-in {
-    animation: fade-in 0.3s ease-out;
+    animation: fade-in 0.2s ease-out;
 }
 
-/* Animation pour le passage en mode édition */
 @keyframes scale-in {
-    from {
-        transform: scale(0.95);
-        opacity: 0;
-    }
-
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
+    from { transform: scale(0.98); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
 .animate-scale-in {
-    animation: scale-in 0.2s ease-out;
+    animation: scale-in 0.15s ease-out;
 }
 
-/* Style pour rendre le solde plus interactif */
-.balance-interactive {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.balance-interactive:hover {
-    transform: scale(1.02);
-}
-
-.balance-interactive:active {
-    transform: scale(0.98);
-}
-
-/* Input de montant stylisé */
-input[type="number"].balance-input {
+input[type='number'].balance-input {
     -moz-appearance: textfield;
 }
 
-input[type="number"].balance-input::-webkit-outer-spin-button,
-input[type="number"].balance-input::-webkit-inner-spin-button {
+input[type='number'].balance-input::-webkit-outer-spin-button,
+input[type='number'].balance-input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+}
+
+/* Recharts: axes, grid and tooltip follow the theme */
+.recharts-cartesian-grid line {
+    stroke: rgb(var(--line));
+}
+
+.recharts-cartesian-axis-tick-value,
+.recharts-text {
+    fill: rgb(var(--fg-subtle));
+    font-size: 12px;
+}
+
+.recharts-default-tooltip {
+    background-color: rgb(var(--surface)) !important;
+    border: 1px solid rgb(var(--line)) !important;
+    border-radius: 10px;
+    box-shadow: var(--shadow-pop);
+}
+
+.recharts-tooltip-label {
+    color: rgb(var(--fg)) !important;
+    font-weight: 600;
+}
+
+.recharts-legend-item-text {
+    color: rgb(var(--fg-muted)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
 }

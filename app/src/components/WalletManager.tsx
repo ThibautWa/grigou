@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Lock } from 'lucide-react';
 import { WalletWithStats } from '@/types/wallet';
 import DuplicateWalletModal from '@/components/DuplicateWalletModal';
 import DeleteWalletModal from '@/components/DeleteWalletModal';
@@ -149,10 +150,10 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
 
     if (loading) {
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-8">
+            <div className="modal-backdrop">
+                <div className="modal-panel w-auto p-8">
                     <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div className="h-8 w-8 border-4 border-line-strong border-t-blue-500 rounded-full animate-spin"></div>
                         <span className="text-lg">Chargement...</span>
                     </div>
                 </div>
@@ -162,14 +163,14 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
 
     return (
         <>
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="modal-backdrop">
+                <div className="modal-panel max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-gray-900">Gestion des portefeuilles</h2>
+                    <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-fg">Gestion des portefeuilles</h2>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            className="text-fg-subtle hover:text-fg transition-colors"
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -181,12 +182,12 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                     <div className="flex-1 overflow-y-auto p-6">
                         {/* Limite de portefeuilles */}
                         {walletLimitError && (
-                            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-                                <span className="text-xl shrink-0">🔒</span>
+                            <div className="mb-4 p-4 bg-warning/10 border border-warning/30 rounded-lg flex items-start gap-3">
+                                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
                                 <div>
-                                    <p className="font-semibold text-amber-800 text-sm">Limite atteinte</p>
-                                    <p className="text-amber-700 text-sm mt-0.5">{walletLimitError}</p>
-                                    <p className="text-amber-600 text-xs mt-1">
+                                    <p className="font-semibold text-warning text-sm">Limite atteinte</p>
+                                    <p className="text-warning text-sm mt-0.5">{walletLimitError}</p>
+                                    <p className="text-warning text-xs mt-1">
                                         Passez en compte <strong>Premium</strong> pour créer des portefeuilles illimités.
                                     </p>
                                 </div>
@@ -195,9 +196,9 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
 
                         {/* Compteur portefeuilles standard */}
                         {!walletLimitError && (
-                            <div className="mb-4 flex items-center justify-between text-xs text-gray-500">
+                            <div className="mb-4 flex items-center justify-between text-xs text-fg-muted">
                                 <span>Portefeuilles actifs</span>
-                                <span className={`font-semibold ${isAtLimit ? 'text-amber-600' : 'text-gray-700'}`}>
+                                <span className={`font-semibold ${isAtLimit ? 'text-warning' : 'text-fg'}`}>
                                     {activeOwnedWallets} / {STANDARD_LIMIT}
                                 </span>
                             </div>
@@ -206,7 +207,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                         {/* Create button */}
                         {!showCreateForm && (
                             isAtLimit ? (
-                                <div className="w-full mb-6 px-4 py-3 bg-gray-100 border border-gray-200 text-gray-400 rounded-lg flex items-center justify-center gap-2 font-medium cursor-not-allowed select-none">
+                                <div className="w-full mb-6 px-4 py-3 bg-surface-2 border border-line text-fg-subtle rounded-lg flex items-center justify-center gap-2 font-medium cursor-not-allowed select-none">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                     </svg>
@@ -215,7 +216,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                             ) : (
                                 <button
                                     onClick={() => { setShowCreateForm(true); setWalletLimitError(null); }}
-                                    className="w-full mb-6 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                                    className="btn-primary mb-6 w-full"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -227,12 +228,12 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
 
                         {/* Create form */}
                         {showCreateForm && (
-                            <form onSubmit={handleCreate} className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-4 text-gray-900">Nouveau portefeuille</h3>
+                            <form onSubmit={handleCreate} className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-lg">
+                                <h3 className="mb-4 text-sm font-semibold text-fg">Nouveau portefeuille</h3>
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="field-label">
                                             Nom du portefeuille *
                                         </label>
                                         <input
@@ -240,26 +241,26 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                             required
                                             value={formData.name}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="field"
                                             placeholder="Ex: Compte courant, Épargne..."
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="field-label">
                                             Description (optionnel)
                                         </label>
                                         <input
                                             type="text"
                                             value={formData.description}
                                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="field"
                                             placeholder="Ex: Mon compte principal..."
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <label className="field-label">
                                             Solde initial
                                         </label>
                                         <input
@@ -267,7 +268,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                             step="0.01"
                                             value={formData.initial_balance}
                                             onChange={(e) => setFormData({ ...formData, initial_balance: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="field"
                                         />
                                     </div>
                                 </div>
@@ -275,7 +276,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                 <div className="flex gap-2 mt-4">
                                     <button
                                         type="submit"
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                        className="btn-primary"
                                     >
                                         Créer
                                     </button>
@@ -285,7 +286,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                             setShowCreateForm(false);
                                             setFormData({ name: '', description: '', initial_balance: '0' });
                                         }}
-                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                        className="btn-secondary"
                                     >
                                         Annuler
                                     </button>
@@ -299,8 +300,8 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                 <div
                                     key={wallet.id}
                                     className={`p-4 border rounded-lg ${wallet.archived
-                                        ? 'bg-gray-50 border-gray-300'
-                                        : 'bg-white border-gray-200 hover:border-blue-300'
+                                        ? 'bg-surface-2 border-line-strong'
+                                        : 'bg-surface border-line hover:border-accent/50'
                                         } transition-colors`}
                                 >
                                     {editingWallet?.id === wallet.id ? (
@@ -310,18 +311,18 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 type="text"
                                                 value={editingWallet.name}
                                                 onChange={(e) => setEditingWallet({ ...editingWallet, name: e.target.value })}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                                className="field"
                                             />
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => handleUpdate(wallet.id, { name: editingWallet.name })}
-                                                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                                                    className="px-3 py-1 bg-accent text-accent-fg rounded text-sm hover:bg-accent-hover"
                                                 >
                                                     Enregistrer
                                                 </button>
                                                 <button
                                                     onClick={() => setEditingWallet(null)}
-                                                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                                                    className="px-3 py-1 bg-surface-3 text-fg rounded text-sm hover:bg-surface-3"
                                                 >
                                                     Annuler
                                                 </button>
@@ -332,33 +333,33 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                         <div className="flex items-start justify-between">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h3 className="text-lg font-semibold text-gray-900">{wallet.name}</h3>
+                                                    <h3 className="text-lg font-semibold text-fg">{wallet.name}</h3>
                                                     {wallet.is_default && (
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                                                        <span className="px-2 py-1 bg-accent/15 text-accent text-xs font-medium rounded">
                                                             Défaut
                                                         </span>
                                                     )}
                                                     {wallet.archived && (
-                                                        <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-medium rounded">
+                                                        <span className="px-2 py-1 bg-surface-3 text-fg-muted text-xs font-medium rounded">
                                                             Archivé
                                                         </span>
                                                     )}
                                                     {/* Indicateur de permission pour les wallets partagés */}
                                                     {(wallet as any).permission && (wallet as any).permission !== 'owner' && (
-                                                        <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+                                                        <span className="px-2 py-1 bg-info/15 text-info text-xs font-medium rounded">
                                                             Partagé ({(wallet as any).permission})
                                                         </span>
                                                     )}
                                                 </div>
                                                 {wallet.description && (
-                                                    <p className="text-sm text-gray-600 mt-1">{wallet.description}</p>
+                                                    <p className="text-sm text-fg-muted mt-1">{wallet.description}</p>
                                                 )}
                                                 <div className="mt-2 flex gap-4 text-sm">
-                                                    <span className="text-gray-600">
-                                                        Solde actuel: <strong className="text-gray-900">{formatCurrency(wallet.current_balance)}</strong>
+                                                    <span className="text-fg-muted">
+                                                        Solde actuel: <strong className="text-fg">{formatCurrency(wallet.current_balance)}</strong>
                                                     </span>
-                                                    <span className="text-gray-600">
-                                                        Transactions: <strong className="text-gray-900">{wallet.transaction_count}</strong>
+                                                    <span className="text-fg-muted">
+                                                        Transactions: <strong className="text-fg">{wallet.transaction_count}</strong>
                                                     </span>
                                                 </div>
                                             </div>
@@ -368,7 +369,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 {(!(wallet as any).permission || (wallet as any).permission === 'owner') && (
                                                     <button
                                                         onClick={() => handleShare(wallet)}
-                                                        className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                                        className="p-2 text-fg-muted hover:text-positive hover:bg-positive/10 rounded transition-colors"
                                                         title="Partager ce portefeuille"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,7 +381,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 {/* Duplicate button */}
                                                 <button
                                                     onClick={() => handleDuplicate(wallet)}
-                                                    className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                                                    className="p-2 text-fg-muted hover:text-info hover:bg-info/10 rounded transition-colors"
                                                     title="Dupliquer ce portefeuille"
                                                 >
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +392,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 {!wallet.is_default && !wallet.archived && (!(wallet as any).permission || (wallet as any).permission === 'owner') && (
                                                     <button
                                                         onClick={() => handleSetDefault(wallet.id)}
-                                                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                        className="p-2 text-fg-muted hover:text-accent-hover hover:bg-accent/10 rounded transition-colors"
                                                         title="Définir comme portefeuille par défaut"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -403,7 +404,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 {(!(wallet as any).permission || (wallet as any).permission === 'owner' || (wallet as any).permission === 'admin') && (
                                                     <button
                                                         onClick={() => setEditingWallet(wallet)}
-                                                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                        className="p-2 text-fg-muted hover:text-accent-hover hover:bg-accent/10 rounded transition-colors"
                                                         title="Renommer"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -415,7 +416,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 {(!(wallet as any).permission || (wallet as any).permission === 'owner' || (wallet as any).permission === 'admin') && (
                                                     <button
                                                         onClick={() => handleUpdate(wallet.id, { archived: !wallet.archived })}
-                                                        className="p-2 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors"
+                                                        className="p-2 text-fg-muted hover:text-warning hover:bg-warning/10 rounded transition-colors"
                                                         title={wallet.archived ? 'Désarchiver' : 'Archiver'}
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -427,7 +428,7 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                                                 {!wallet.is_default && (!(wallet as any).permission || (wallet as any).permission === 'owner') && (
                                                     <button
                                                         onClick={() => handleDelete(wallet)}
-                                                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                        className="p-2 text-fg-muted hover:text-negative hover:bg-negative/10 rounded transition-colors"
                                                         title="Supprimer"
                                                     >
                                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -444,10 +445,10 @@ export default function WalletManager({ onClose, onWalletCreated }: WalletManage
                     </div>
 
                     {/* Footer */}
-                    <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    <div className="px-6 py-4 border-t border-line bg-surface-2">
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            className="btn-secondary"
                         >
                             Fermer
                         </button>

@@ -61,7 +61,7 @@ export default function InvitationsList({ onInvitationAccepted }: InvitationsLis
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <div className="h-6 w-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+        <div className="h-6 w-6 border-2 border-line-strong border-t-blue-500 rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -71,8 +71,8 @@ export default function InvitationsList({ onInvitationAccepted }: InvitationsLis
   }
 
   return (
-    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-      <h3 className="text-lg font-semibold text-yellow-900 mb-3 flex items-center gap-2">
+    <div className="mb-6 p-4 bg-warning/10 border border-warning/30 rounded-lg">
+      <h3 className="text-lg font-semibold text-warning mb-3 flex items-center gap-2">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
@@ -83,31 +83,31 @@ export default function InvitationsList({ onInvitationAccepted }: InvitationsLis
         {invitations.map((invitation) => (
           <div
             key={invitation.id}
-            className="p-4 bg-white border border-yellow-300 rounded-lg"
+            className="p-4 bg-surface border border-warning/40 rounded-lg"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <p className="font-semibold text-gray-900">
+                <p className="font-semibold text-fg">
                   {invitation.wallet.name}
                 </p>
                 {invitation.wallet.description && (
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-fg-muted mt-1">
                     {invitation.wallet.description}
                   </p>
                 )}
-                <div className="mt-2 text-sm text-gray-500">
+                <div className="mt-2 text-sm text-fg-muted">
                   <p>
                     Partagé par{' '}
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium text-fg">
                       {invitation.invitedBy.firstName} {invitation.invitedBy.lastName}
                     </span>{' '}
                     ({invitation.invitedBy.email})
                   </p>
                   <p className="flex items-center gap-2 mt-1">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                    <span className="px-2 py-0.5 bg-accent/15 text-accent text-xs font-medium rounded">
                       {PERMISSION_LABELS[invitation.permission]}
                     </span>
-                    <span className="text-gray-400">•</span>
+                    <span className="text-fg-subtle">•</span>
                     <span>
                       {format(new Date(invitation.invitedAt), 'dd MMMM yyyy', { locale: fr })}
                     </span>
@@ -119,14 +119,14 @@ export default function InvitationsList({ onInvitationAccepted }: InvitationsLis
                 <button
                   onClick={() => handleAction(invitation.id, 'reject')}
                   disabled={processingId === invitation.id}
-                  className="px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                  className="btn-secondary !px-3"
                 >
                   Refuser
                 </button>
                 <button
                   onClick={() => handleAction(invitation.id, 'accept')}
                   disabled={processingId === invitation.id}
-                  className="px-3 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1"
+                  className="btn-primary !px-3"
                 >
                   {processingId === invitation.id ? (
                     <>

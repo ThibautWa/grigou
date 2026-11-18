@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Wallet } from '@/types/wallet';
+import { ChevronsUpDown, Settings2, Wallet as WalletIcon } from 'lucide-react';
 
 interface WalletWithSharing extends Wallet {
     permission?: 'owner' | 'admin' | 'write' | 'read';
@@ -62,100 +63,56 @@ export default function WalletSelector({
     }, []);
 
     if (loading) {
-        return (
-            <div className="flex items-center gap-2 text-gray-500">
-                <div className="h-5 w-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                <span className="text-sm">Chargement...</span>
-            </div>
-        );
+        return <div className="h-9 w-48 animate-pulse rounded-lg bg-surface-2" aria-label="Chargement des portefeuilles" />;
     }
 
-    // Séparer les wallets personnels et partagés
+    // Separate personal and shared wallets
     const ownedWallets = wallets.filter(w => !w.permission || w.permission === 'owner');
     const sharedWallets = wallets.filter(w => w.permission && w.permission !== 'owner');
 
-    const getPermissionLabel = (permission: string) => {
-        switch (permission) {
-            case 'admin': return '👑';
-            case 'write': return '✏️';
-            case 'read': return '👁️';
-            default: return '';
-        }
+    const permissionLabel: Record<string, string> = {
+        admin: 'admin',
+        write: 'édition',
+        read: 'lecture',
     };
 
     return (
-        <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-                <svg
-                    className="w-5 h-5 text-gray-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                    />
-                </svg>
+        <div className="flex items-center gap-1">
+            <div className="relative">
+                <WalletIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
                 <select
                     value={selectedWalletId || ''}
                     onChange={(e) => onWalletChange(parseInt(e.target.value))}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 font-medium cursor-pointer hover:border-gray-400 transition-colors min-w-[200px]"
+                    aria-label="Portefeuille"
+                    className="h-9 max-w-[10rem] cursor-pointer appearance-none truncate rounded-lg border border-line bg-surface pl-8 pr-8 text-sm font-medium text-fg transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:max-w-[16rem]"
                 >
-                    {/* Wallets personnels */}
                     {ownedWallets.length > 0 && (
-                        <optgroup label="📁 Mes portefeuilles">
+                        <optgroup label="Mes portefeuilles">
                             {ownedWallets.map((wallet) => (
                                 <option key={wallet.id} value={wallet.id}>
                                     {wallet.name}
-                                    {wallet.is_default && ' ⭐'}
                                 </option>
                             ))}
                         </optgroup>
                     )}
-
-                    {/* Wallets partagés */}
                     {sharedWallets.length > 0 && (
-                        <optgroup label="🤝 Partagés avec moi">
+                        <optgroup label="Partagés avec moi">
                             {sharedWallets.map((wallet) => (
                                 <option key={wallet.id} value={wallet.id}>
-                                    {getPermissionLabel(wallet.permission!)} {wallet.name}
-                                    {wallet.owner_name && ` (${wallet.owner_name})`}
+                                    {wallet.name}
+                                    {wallet.owner_name ? ` · ${wallet.owner_name}` : ''}
+                                    {` (${permissionLabel[wallet.permission!] ?? wallet.permission})`}
                                 </option>
                             ))}
                         </optgroup>
                     )}
                 </select>
+                <ChevronsUpDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-subtle" aria-hidden />
             </div>
 
             {onManageWallets && (
-                <button
-                    onClick={onManageWallets}
-                    className="px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1"
-                    title="Gérer les portefeuilles"
-                >
-                    <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                        />
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                    </svg>
-                    Gérer
+                <button onClick={onManageWallets} className="btn-icon h-9 w-9" title="Gérer les portefeuilles" aria-label="Gérer les portefeuilles">
+                    <Settings2 className="h-4 w-4" />
                 </button>
             )}
         </div>

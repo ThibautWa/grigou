@@ -30,20 +30,35 @@ export async function createUser(data: UserCreateDto): Promise<User> {
       throw new Error('EMAIL_ALREADY_EXISTS');
     }
 
-    const result = await client.query(
-      `INSERT INTO users (email, password_hash, first_name, last_name)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, email, first_name, last_name, email_verified, 
-                 email_verified_at, created_at, updated_at, last_login_at, is_active`,
-      [email, passwordHash, firstName, lastName]
-    );
+    // User and their first wallet in one transaction: a new account must
+    // never be left without a wallet (the dashboard needs one).
+    await client.query('BEGIN');
+    try {
+      const result = await client.query(
+        `INSERT INTO users (email, password_hash, first_name, last_name)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, email, first_name, last_name, email_verified,
+                   email_verified_at, created_at, updated_at, last_login_at, is_active`,
+        [email, passwordHash, firstName, lastName]
+      );
 
-    const user = mapRowToUser(result.rows[0]);
+      const user = mapRowToUser(result.rows[0]);
 
-    // Log d'audit
-    await logAuditEvent(client, user.id, 'USER_REGISTERED', 'user', user.id);
+      await client.query(
+        `INSERT INTO wallets (user_id, name, description, initial_balance, is_default)
+         VALUES ($1, 'Compte courant', NULL, 0, true)`,
+        [user.id]
+      );
 
-    return user;
+      // Log d'audit
+      await logAuditEvent(client, user.id, 'USER_REGISTERED', 'user', user.id);
+
+      await client.query('COMMIT');
+      return user;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
   } finally {
     client.release();
   }

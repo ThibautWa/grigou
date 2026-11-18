@@ -58,16 +58,16 @@ export default function DuplicateWalletModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="modal-backdrop">
+            <div className="modal-panel max-w-md w-full">
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-900">
+                <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-fg">
                         Dupliquer le portefeuille
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-fg-subtle hover:text-fg transition-colors"
                         disabled={loading}
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,18 +79,18 @@ export default function DuplicateWalletModal({
                 {/* Content */}
                 <form onSubmit={handleSubmit} className="p-6">
                     {error && (
-                        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                        <div className="mb-4 bg-negative/10 border border-negative/30 text-negative px-4 py-3 rounded">
                             {error}
                         </div>
                     )}
 
                     {/* Source info */}
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                        <p className="text-sm text-blue-800">
+                    <div className="mb-4 p-3 bg-accent/10 border border-accent/30 rounded">
+                        <p className="text-sm text-accent">
                             <strong>Source :</strong> {sourceWallet.name}
                         </p>
                         {sourceWallet.description && (
-                            <p className="text-xs text-blue-600 mt-1">
+                            <p className="text-xs text-accent mt-1">
                                 {sourceWallet.description}
                             </p>
                         )}
@@ -98,7 +98,7 @@ export default function DuplicateWalletModal({
 
                     {/* New name */}
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="field-label">
                             Nom du nouveau portefeuille *
                         </label>
                         <input
@@ -106,14 +106,14 @@ export default function DuplicateWalletModal({
                             required
                             value={formData.newName}
                             onChange={(e) => setFormData({ ...formData, newName: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="field"
                             placeholder="Ex: Budget 2026"
                         />
                     </div>
 
                     {/* Options */}
                     <div className="space-y-3 mb-6">
-                        <p className="text-sm font-medium text-gray-700 mb-2">
+                        <p className="text-sm font-medium text-fg mb-2">
                             Options de duplication :
                         </p>
 
@@ -124,13 +124,13 @@ export default function DuplicateWalletModal({
                                 onChange={(e) =>
                                     setFormData({ ...formData, copyRecurringTransactions: e.target.checked })
                                 }
-                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="mt-1 w-4 h-4 text-accent border-line-strong rounded focus:ring-accent/25"
                             />
                             <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-medium text-fg">
                                     Copier les transactions récurrentes
                                 </span>
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-fg-muted">
                                     Les transactions récurrentes (salaire, loyer, etc.) seront copiées vers le nouveau portefeuille
                                 </p>
                             </div>
@@ -143,13 +143,13 @@ export default function DuplicateWalletModal({
                                 onChange={(e) =>
                                     setFormData({ ...formData, copyInitialBalance: e.target.checked })
                                 }
-                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="mt-1 w-4 h-4 text-accent border-line-strong rounded focus:ring-accent/25"
                             />
                             <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-medium text-fg">
                                     Copier le solde initial
                                 </span>
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-fg-muted">
                                     Le nouveau portefeuille aura le même solde initial ({sourceWallet.initial_balance.toFixed(2)} €)
                                 </p>
                             </div>
@@ -162,13 +162,13 @@ export default function DuplicateWalletModal({
                                 onChange={(e) =>
                                     setFormData({ ...formData, copyDescription: e.target.checked })
                                 }
-                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="mt-1 w-4 h-4 text-accent border-line-strong rounded focus:ring-accent/25"
                             />
                             <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-medium text-fg">
                                     Copier la description
                                 </span>
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-fg-muted">
                                     Copier la description du portefeuille source
                                 </p>
                             </div>
@@ -181,13 +181,13 @@ export default function DuplicateWalletModal({
                                 onChange={(e) =>
                                     setFormData({ ...formData, setAsDefault: e.target.checked })
                                 }
-                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                className="mt-1 w-4 h-4 text-accent border-line-strong rounded focus:ring-accent/25"
                             />
                             <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-medium text-fg">
                                     Définir comme portefeuille par défaut
                                 </span>
-                                <p className="text-xs text-gray-600">
+                                <p className="text-xs text-fg-muted">
                                     Le nouveau portefeuille deviendra le portefeuille par défaut
                                 </p>
                             </div>
@@ -195,8 +195,8 @@ export default function DuplicateWalletModal({
                     </div>
 
                     {/* Info box */}
-                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                        <p className="text-xs text-yellow-800">
+                    <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded">
+                        <p className="text-xs text-warning">
                             <strong>ℹ️ Note :</strong> Les transactions normales (non récurrentes) ne seront pas copiées.
                             Seul le nouveau portefeuille vide avec les mêmes paramètres et transactions récurrentes sera créé.
                         </p>
@@ -208,14 +208,14 @@ export default function DuplicateWalletModal({
                             type="button"
                             onClick={onClose}
                             disabled={loading}
-                            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+                            className="btn-secondary flex-1"
                         >
                             Annuler
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="btn-primary flex-1"
                         >
                             {loading ? (
                                 <>

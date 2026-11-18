@@ -3,15 +3,12 @@
 
 import { SessionProvider } from 'next-auth/react';
 import { ReactNode } from 'react';
+import { ThemeProvider } from './theme/ThemeProvider';
 
-interface ProvidersProps {
-  children: ReactNode;
-}
-
-export default function Providers({ children }: ProvidersProps) {
+export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      {children}
+      <ThemeProvider>{children}</ThemeProvider>
     </SessionProvider>
   );
 }

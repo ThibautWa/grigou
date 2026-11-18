@@ -104,7 +104,7 @@ export default function RegisterPage() {
   };
 
   const PasswordCriteria = ({ met, text }: { met: boolean; text: string }) => (
-    <li className={`flex items-center gap-2 text-sm ${met ? 'text-green-600' : 'text-gray-500'}`}>
+    <li className={`flex items-center gap-2 text-sm ${met ? 'text-positive' : 'text-fg-muted'}`}>
       {met ? (
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
           <path
@@ -123,20 +123,19 @@ export default function RegisterPage() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="w-full">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">💰 Grigou</h1>
-          <h2 className="text-2xl font-semibold text-gray-700">Créer un compte</h2>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-2xl font-semibold text-fg">Créer un compte</h1>
+          <p className="mt-2 text-fg-muted">
             Commencez à gérer votre budget efficacement
           </p>
         </div>
 
         {/* Error message */}
         {errors.general && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="bg-negative/10 border border-negative/30 text-negative px-4 py-3 rounded-lg">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
@@ -151,11 +150,11 @@ export default function RegisterPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white shadow-xl rounded-2xl p-8 space-y-5">
+        <form onSubmit={handleSubmit} className="card space-y-5 p-6 sm:p-8">
           {/* Nom et Prénom */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="firstName" className="field-label">
                 Prénom
               </label>
               <input
@@ -165,18 +164,18 @@ export default function RegisterPage() {
                 autoComplete="given-name"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                  errors.firstName ? 'border-red-300' : 'border-gray-300'
+                className={`field !py-2.5 ${
+                  errors.firstName ? 'border-negative/40' : 'border-line-strong'
                 }`}
                 placeholder="Jean"
               />
               {errors.firstName && (
-                <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                <p className="mt-1 text-sm text-negative">{errors.firstName}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="lastName" className="field-label">
                 Nom
               </label>
               <input
@@ -186,20 +185,20 @@ export default function RegisterPage() {
                 autoComplete="family-name"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                  errors.lastName ? 'border-red-300' : 'border-gray-300'
+                className={`field !py-2.5 ${
+                  errors.lastName ? 'border-negative/40' : 'border-line-strong'
                 }`}
                 placeholder="Dupont"
               />
               {errors.lastName && (
-                <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                <p className="mt-1 text-sm text-negative">{errors.lastName}</p>
               )}
             </div>
           </div>
 
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="field-label">
               Adresse email
             </label>
             <input
@@ -209,19 +208,19 @@ export default function RegisterPage() {
               autoComplete="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                errors.email ? 'border-red-300' : 'border-gray-300'
+              className={`field !py-2.5 ${
+                errors.email ? 'border-negative/40' : 'border-line-strong'
               }`}
               placeholder="votre@email.com"
             />
             {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              <p className="mt-1 text-sm text-negative">{errors.email}</p>
             )}
           </div>
 
           {/* Mot de passe */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="field-label">
               Mot de passe
             </label>
             <div className="relative">
@@ -232,15 +231,16 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className={`w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                  errors.password ? 'border-red-300' : 'border-gray-300'
+                className={`field !py-2.5 pr-12 ${
+                  errors.password ? 'border-negative/40' : 'border-line-strong'
                 }`}
                 placeholder="••••••••"
               />
               <button
                 type="button"
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg"
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,13 +266,13 @@ export default function RegisterPage() {
               </ul>
             )}
             {errors.password && (
-              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              <p className="mt-1 text-sm text-negative">{errors.password}</p>
             )}
           </div>
 
           {/* Confirmation du mot de passe */}
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="confirmPassword" className="field-label">
               Confirmer le mot de passe
             </label>
             <input
@@ -282,18 +282,18 @@ export default function RegisterPage() {
               autoComplete="new-password"
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                errors.confirmPassword ? 'border-red-300' : 
-                formData.confirmPassword && formData.password === formData.confirmPassword ? 'border-green-300' : 
-                'border-gray-300'
+              className={`field !py-2.5 ${
+                errors.confirmPassword ? 'border-negative/40' : 
+                formData.confirmPassword && formData.password === formData.confirmPassword ? 'border-positive/40' : 
+                'border-line-strong'
               }`}
               placeholder="••••••••"
             />
             {errors.confirmPassword && (
-              <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+              <p className="mt-1 text-sm text-negative">{errors.confirmPassword}</p>
             )}
             {formData.confirmPassword && formData.password === formData.confirmPassword && (
-              <p className="mt-1 text-sm text-green-600 flex items-center gap-1">
+              <p className="mt-1 text-sm text-positive flex items-center gap-1">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
@@ -309,7 +309,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading || !isPasswordValid}
-            className="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            className="btn-primary w-full !py-2.5"
           >
             {loading ? (
               <>
@@ -331,11 +331,11 @@ export default function RegisterPage() {
         </form>
 
         {/* Footer */}
-        <p className="text-center text-gray-600">
+        <p className="text-center text-fg-muted">
           Déjà un compte ?{' '}
           <Link
             href="/login"
-            className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            className="font-semibold text-accent hover:text-accent-hover transition-colors"
           >
             Se connecter
           </Link>

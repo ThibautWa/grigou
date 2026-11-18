@@ -46,17 +46,17 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="w-full">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">💰 Grigou</h1>
-          <h2 className="text-2xl font-semibold text-gray-700">Connexion</h2>
+          <h1 className="text-2xl font-semibold text-fg">Connexion</h1>
+          <p className="mt-1.5 text-sm text-fg-muted">Accédez à vos portefeuilles et à vos prévisions.</p>
         </div>
 
         {/* Success message après inscription */}
         {registered && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+          <div className="bg-positive/10 border border-positive/30 text-positive px-4 py-3 rounded-lg">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -68,7 +68,7 @@ function LoginForm() {
 
         {/* Error message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="bg-negative/10 border border-negative/30 text-negative px-4 py-3 rounded-lg">
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
@@ -79,10 +79,10 @@ function LoginForm() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white shadow-xl rounded-2xl p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="card space-y-5 p-6 sm:p-8">
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="field-label">
               Adresse email
             </label>
             <input
@@ -92,16 +92,21 @@ function LoginForm() {
               autoComplete="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="field !py-2.5"
               placeholder="votre@email.com"
             />
           </div>
 
           {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Mot de passe
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label htmlFor="password" className="text-sm font-medium text-fg">
+                Mot de passe
+              </label>
+              <Link href="/forgot-password" className="text-xs font-medium text-accent hover:text-accent-hover">
+                Mot de passe oublié ?
+              </Link>
+            </div>
             <div className="relative">
               <input
                 id="password"
@@ -110,13 +115,14 @@ function LoginForm() {
                 autoComplete="current-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="field !py-2.5 pr-12"
                 placeholder="••••••••"
               />
               <button
                 type="button"
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg"
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +141,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            className="btn-primary w-full !py-2.5"
           >
             {loading ? (
               <>
@@ -156,22 +162,10 @@ function LoginForm() {
           </button>
         </form>
 
-        {/* Footer */}
-        <p className="text-center text-gray-600">
+        <p className="text-center text-sm text-fg-muted">
           Pas encore de compte ?{' '}
-          <Link
-            href="/register"
-            className="font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-          >
-            S'inscrire
-          </Link>
-        </p>
-        <p className="text-center text-gray-600">
-          <Link
-            href="/forgot-password"
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Mot de passe oublié ?
+          <Link href="/register" className="font-medium text-accent hover:text-accent-hover">
+            Créer un compte
           </Link>
         </p>
       </div>
@@ -185,8 +179,8 @@ export default function LoginPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="h-12 w-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
+          <div className="h-8 w-8 border-2 border-line-strong border-t-accent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-fg-muted">Chargement...</p>
         </div>
       </div>
     }>

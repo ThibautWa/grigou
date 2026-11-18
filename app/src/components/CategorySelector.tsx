@@ -97,9 +97,9 @@ export default function CategorySelector({
 
     if (loading) {
         return (
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
-                <div className="flex items-center gap-2 text-gray-400">
-                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+            <div className="field bg-surface-2">
+                <div className="flex items-center gap-2 text-fg-subtle">
+                    <div className="w-4 h-4 border-2 border-line-strong border-t-blue-500 rounded-full animate-spin"></div>
                     Chargement...
                 </div>
             </div>
@@ -116,23 +116,23 @@ export default function CategorySelector({
                     setTimeout(() => inputRef.current?.focus(), 100);
                 }}
                 className={`w-full px-3 py-2 border rounded-lg text-left flex items-center justify-between transition-colors ${isOpen
-                        ? 'border-blue-500 ring-2 ring-blue-500'
-                        : 'border-gray-300 hover:border-gray-400'
-                    } ${!selectedCategory && required ? 'border-gray-300' : ''}`}
+                        ? 'border-accent ring-2 ring-accent'
+                        : 'border-line-strong hover:border-line-strong'
+                    } ${!selectedCategory && required ? 'border-line-strong' : ''}`}
             >
                 {selectedCategory ? (
                     <span className="flex items-center gap-2">
                         <span>{selectedCategory.icon}</span>
                         <span className="font-medium">{selectedCategory.name}</span>
                         {!selectedCategory.is_system && (
-                            <span className="text-xs text-gray-400">(perso)</span>
+                            <span className="text-xs text-fg-subtle">(perso)</span>
                         )}
                     </span>
                 ) : (
-                    <span className="text-gray-400">Sélectionner une catégorie{required ? ' *' : ''}</span>
+                    <span className="text-fg-subtle">Choisir une catégorie</span>
                 )}
                 <svg
-                    className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    className={`w-5 h-5 text-fg-subtle transition-transform ${isOpen ? 'rotate-180' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -143,12 +143,12 @@ export default function CategorySelector({
 
             {/* Dropdown */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                <div className="absolute z-50 w-full mt-1 bg-surface border border-line rounded-lg shadow-lg max-h-80 overflow-hidden">
                     {/* Recherche */}
-                    <div className="p-2 border-b border-gray-100">
+                    <div className="p-2 border-b border-line">
                         <div className="relative">
                             <svg
-                                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-subtle"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
@@ -161,7 +161,7 @@ export default function CategorySelector({
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Rechercher..."
-                                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="field pl-9"
                             />
                         </div>
                     </div>
@@ -171,7 +171,7 @@ export default function CategorySelector({
                         {/* Catégories système */}
                         {filteredSystemCategories.length > 0 && (
                             <div>
-                                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">
+                                <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted bg-surface-2 sticky top-0">
                                     Catégories standards
                                 </div>
                                 {filteredSystemCategories.map((category) => (
@@ -179,7 +179,7 @@ export default function CategorySelector({
                                         key={category.id}
                                         type="button"
                                         onClick={() => handleSelect(category)}
-                                        className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-blue-50 transition-colors ${value === category.id ? 'bg-blue-50 text-blue-700' : ''
+                                        className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-accent/10 transition-colors ${value === category.id ? 'bg-accent/10 text-accent' : ''
                                             }`}
                                     >
                                         <span
@@ -190,7 +190,7 @@ export default function CategorySelector({
                                         </span>
                                         <span className="flex-1">{category.name}</span>
                                         {value === category.id && (
-                                            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                             </svg>
                                         )}
@@ -202,7 +202,7 @@ export default function CategorySelector({
                         {/* Catégories personnalisées */}
                         {filteredUserCategories.length > 0 && (
                             <div>
-                                <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">
+                                <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted bg-surface-2 sticky top-0">
                                     Mes catégories
                                 </div>
                                 {filteredUserCategories.map((category) => (
@@ -210,7 +210,7 @@ export default function CategorySelector({
                                         key={category.id}
                                         type="button"
                                         onClick={() => handleSelect(category)}
-                                        className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-blue-50 transition-colors ${value === category.id ? 'bg-blue-50 text-blue-700' : ''
+                                        className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-accent/10 transition-colors ${value === category.id ? 'bg-accent/10 text-accent' : ''
                                             }`}
                                     >
                                         <span
@@ -221,7 +221,7 @@ export default function CategorySelector({
                                         </span>
                                         <span className="flex-1">{category.name}</span>
                                         {value === category.id && (
-                                            <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg className="w-4 h-4 text-accent" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                             </svg>
                                         )}
@@ -232,19 +232,19 @@ export default function CategorySelector({
 
                         {/* Aucun résultat */}
                         {filteredSystemCategories.length === 0 && filteredUserCategories.length === 0 && (
-                            <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                            <div className="px-3 py-4 text-center text-fg-muted text-sm">
                                 Aucune catégorie trouvée
                             </div>
                         )}
                     </div>
 
                     {/* Actions */}
-                    <div className="p-2 border-t border-gray-100 flex gap-2">
+                    <div className="p-2 border-t border-line flex gap-2">
                         {selectedCategory && !required && (
                             <button
                                 type="button"
                                 onClick={handleClear}
-                                className="flex-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                className="flex-1 px-3 py-1.5 text-sm text-fg-muted hover:bg-surface-2 rounded transition-colors"
                             >
                                 Effacer
                             </button>
@@ -256,7 +256,7 @@ export default function CategorySelector({
                                     setIsOpen(false);
                                     onManageCategories();
                                 }}
-                                className="flex-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-1"
+                                className="flex-1 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 rounded transition-colors flex items-center justify-center gap-1"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

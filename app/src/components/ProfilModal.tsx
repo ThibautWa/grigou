@@ -121,19 +121,19 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
     );
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="modal-backdrop">
+            <div className="modal-panel max-w-md w-full">
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-fg flex items-center gap-2">
+                        <svg className="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         Mon profil
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-fg-subtle hover:text-fg transition-colors"
                         disabled={loading}
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,7 +146,7 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                 <form onSubmit={handleSubmit} className="p-6">
                     {/* Messages */}
                     {error && (
-                        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                        <div className="mb-4 bg-negative/10 border border-negative/30 text-negative px-4 py-3 rounded-lg flex items-center gap-2">
                             <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                             </svg>
@@ -155,7 +155,7 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                     )}
 
                     {success && (
-                        <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                        <div className="mb-4 bg-positive/10 border border-positive/30 text-positive px-4 py-3 rounded-lg flex items-center gap-2">
                             <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
@@ -165,7 +165,7 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
 
                     {/* Avatar */}
                     <div className="flex justify-center mb-6">
-                        <div className="h-20 w-20 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-2xl">
+                        <div className="h-20 w-20 bg-accent text-accent-fg rounded-full flex items-center justify-center font-bold text-2xl">
                             {formData.firstName[0]?.toUpperCase() || ''}{formData.lastName[0]?.toUpperCase() || ''}
                         </div>
                     </div>
@@ -173,7 +173,7 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                     <div className="space-y-4">
                         {/* Prénom */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="field-label">
                                 Prénom *
                             </label>
                             <input
@@ -181,14 +181,14 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                                 required
                                 value={formData.firstName}
                                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="field"
                                 placeholder="Jean"
                             />
                         </div>
 
                         {/* Nom */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="field-label">
                                 Nom *
                             </label>
                             <input
@@ -196,14 +196,14 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                                 required
                                 value={formData.lastName}
                                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="field"
                                 placeholder="Dupont"
                             />
                         </div>
 
                         {/* Email */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="field-label">
                                 Adresse email *
                             </label>
                             <input
@@ -211,17 +211,17 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                                 required
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="field"
                                 placeholder="jean.dupont@email.com"
                             />
-                            <p className="mt-1 text-xs text-gray-500">
+                            <p className="mt-1 text-xs text-fg-muted">
                                 Si vous changez votre email, vous devrez l'utiliser pour vous reconnecter.
                             </p>
                         </div>
 
                         {/* Informations supplémentaires */}
-                        <div className="pt-4 border-t border-gray-200">
-                            <p className="text-sm text-gray-500">
+                        <div className="pt-4 border-t border-line">
+                            <p className="text-sm text-fg-muted">
                                 <span className="font-medium">Membre depuis :</span>{' '}
                                 {session?.user ? 'Données non disponibles' : '—'}
                             </p>
@@ -234,14 +234,14 @@ export default function ProfileModal({ onClose, onUpdated }: ProfileModalProps) 
                             type="button"
                             onClick={onClose}
                             disabled={loading}
-                            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
+                            className="btn-secondary flex-1"
                         >
                             Annuler
                         </button>
                         <button
                             type="submit"
                             disabled={loading || !hasChanges}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="btn-primary flex-1"
                         >
                             {loading ? (
                                 <>

@@ -1,4 +1,5 @@
-// Auto-generated layout for dark theme on auth pages
+import AuthFrame from '@/components/layout/AuthFrame';
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-    return <div className="grigou-dark">{children}</div>;
+    return <AuthFrame>{children}</AuthFrame>;
 }

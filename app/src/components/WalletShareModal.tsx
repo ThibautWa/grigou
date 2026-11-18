@@ -121,17 +121,17 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Partager le portefeuille</h2>
-            <p className="text-sm text-gray-600">{wallet.name}</p>
+            <h2 className="text-lg font-semibold text-fg">Partager le portefeuille</h2>
+            <p className="text-sm text-fg-muted">{wallet.name}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-fg-subtle hover:text-fg transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -143,7 +143,7 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
         <div className="flex-1 overflow-y-auto p-6">
           {/* Messages */}
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <div className="mb-4 bg-negative/10 border border-negative/30 text-negative px-4 py-3 rounded-lg flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
@@ -152,7 +152,7 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
           )}
 
           {success && (
-            <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <div className="mb-4 bg-positive/10 border border-positive/30 text-positive px-4 py-3 rounded-lg flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
@@ -161,12 +161,12 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
           )}
 
           {/* Formulaire d'invitation */}
-          <form onSubmit={handleInvite} className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Inviter un utilisateur</h3>
+          <form onSubmit={handleInvite} className="mb-6 p-4 bg-accent/10 border border-accent/30 rounded-lg">
+            <h3 className="mb-3 text-sm font-semibold text-fg">Inviter un utilisateur</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="field-label">
                   Email de l'utilisateur
                 </label>
                 <input
@@ -175,18 +175,18 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="utilisateur@email.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="field-label">
                   Permission
                 </label>
                 <select
                   value={permission}
                   onChange={(e) => setPermission(e.target.value as 'read' | 'write' | 'admin')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="field"
                 >
                   <option value="read">Lecture seule</option>
                   <option value="write">Lecture/Écriture</option>
@@ -195,14 +195,14 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
               </div>
             </div>
 
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-fg-muted">
               {PERMISSION_DESCRIPTIONS[permission]}
             </p>
 
             <button
               type="submit"
               disabled={inviting}
-              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 flex items-center gap-2"
+              className="btn-primary mt-3"
             >
               {inviting ? (
                 <>
@@ -225,15 +225,15 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
 
           {/* Liste des partages */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Utilisateurs avec accès</h3>
+            <h3 className="mb-3 text-sm font-semibold text-fg">Utilisateurs avec accès</h3>
 
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                <div className="h-8 w-8 border-4 border-line-strong border-t-blue-500 rounded-full animate-spin"></div>
               </div>
             ) : shares.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center py-8 text-fg-muted">
+                <svg className="w-12 h-12 mx-auto mb-3 text-fg-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 <p>Ce portefeuille n'est partagé avec personne</p>
@@ -244,27 +244,27 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
                   <div
                     key={share.id}
                     className={`p-4 border rounded-lg ${
-                      share.status === 'pending' ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'
+                      share.status === 'pending' ? 'bg-warning/10 border-warning/30' : 'bg-surface border-line'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {/* Avatar */}
-                        <div className="h-10 w-10 bg-gray-300 text-gray-700 rounded-full flex items-center justify-center font-semibold">
+                        <div className="h-10 w-10 bg-surface-3 text-fg rounded-full flex items-center justify-center font-semibold">
                           {share.user.firstName[0]}{share.user.lastName[0]}
                         </div>
                         
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-fg">
                             {share.user.firstName} {share.user.lastName}
                           </p>
-                          <p className="text-sm text-gray-500">{share.user.email}</p>
+                          <p className="text-sm text-fg-muted">{share.user.email}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
                         {share.status === 'pending' && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                          <span className="px-2 py-1 bg-warning/15 text-warning text-xs font-medium rounded">
                             En attente
                           </span>
                         )}
@@ -272,7 +272,7 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
                         <select
                           value={share.permission}
                           onChange={(e) => handleUpdatePermission(share.id, e.target.value as Permission)}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+                          className="px-2 py-1 border border-line-strong rounded text-sm focus:ring-2 focus:ring-accent/25"
                         >
                           <option value="read">Lecture</option>
                           <option value="write">Écriture</option>
@@ -281,7 +281,7 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
 
                         <button
                           onClick={() => handleRemoveShare(share.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="p-2 text-negative hover:bg-negative/10 rounded transition-colors"
                           title="Retirer l'accès"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,10 +298,10 @@ export default function WalletShareModal({ wallet, onClose }: WalletShareModalPr
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="px-6 py-4 border-t border-line bg-surface-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            className="btn-secondary"
           >
             Fermer
           </button>

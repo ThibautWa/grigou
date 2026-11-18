@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { DM_Sans, Playfair_Display } from 'next/font/google';
 import './globals.css';
-import './grigou-dark-theme.css';
-import './grigou-fonts.css';
 import Providers from '@/components/Providers';
+import { themeInitScript } from '@/components/theme/theme-script';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -50,7 +49,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={`${dmSans.variable} ${playfair.variable}`}>
+    <html lang="fr" className={`${dmSans.variable} ${playfair.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
         <Providers>
           {children}

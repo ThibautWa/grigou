@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { RefreshCw, Loader2 } from 'lucide-react';
+import AppHeader from '@/components/layout/AppHeader';
+import { useThemeColors } from '@/components/theme/ThemeProvider';
 import {
     BarChart, Bar,
     LineChart, Line,
@@ -81,22 +83,24 @@ const PIE_COLORS = [
     '#ec4899', '#a855f7', '#22c55e', '#3b82f6', '#14b8a6',
 ];
 
-const ACCENT = '#34d399';
-const ACCENT2 = '#06b6d4';
-const INCOME_C = '#34d399';
-const EXPENSE_C = '#ef4444';
-const PURPLE_C = '#6366f1';
+// HTML inline styles: CSS variables (follow the theme).
+// Inside the page, the SVG charts get real values via useThemeColors().
+const ACCENT = 'rgb(var(--accent))';
+const ACCENT2 = 'rgb(var(--info))';
+const INCOME_C = 'rgb(var(--positive))';
+const EXPENSE_C = 'rgb(var(--negative))';
+const PURPLE_C = 'rgb(var(--info))';
 
 const GD = {
-    bg: '#0a0e17',
-    card: '#111827',
-    card2: '#1a2235',
-    card3: '#1e293b',
-    border: 'rgba(148,163,184,0.10)',
-    border2: 'rgba(148,163,184,0.18)',
-    text: '#f1f5f9',
-    text2: '#94a3b8',
-    muted: '#64748b',
+    bg: 'rgb(var(--canvas))',
+    card: 'rgb(var(--surface))',
+    card2: 'rgb(var(--surface-2))',
+    card3: 'rgb(var(--surface-3))',
+    border: 'rgb(var(--line))',
+    border2: 'rgb(var(--line-strong))',
+    text: 'rgb(var(--fg))',
+    text2: 'rgb(var(--fg-muted))',
+    muted: 'rgb(var(--fg-subtle))',
 };
 
 const fmt = (n: number) =>
@@ -127,14 +131,7 @@ function ChartCard({
     subtitle?: string;
 }) {
     return (
-        <section
-            style={{
-                background: GD.card,
-                border: `1px solid ${GD.border}`,
-                borderRadius: 16,
-                padding: '1.5rem',
-            }}
-        >
+        <section className="card p-5 md:p-6">
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <div>
                     <h2 style={{ color: GD.text, fontSize: '0.9375rem', fontWeight: 600, margin: 0 }}>{title}</h2>
@@ -163,29 +160,9 @@ function SegmentedControl<T extends string>({
     options: { value: T; label: string }[];
 }) {
     return (
-        <div style={{
-            display: 'flex',
-            background: GD.card2,
-            borderRadius: 8,
-            padding: 2,
-            border: `1px solid ${GD.border}`,
-        }}>
+        <div className="segmented" role="group">
             {options.map(opt => (
-                <button
-                    key={opt.value}
-                    onClick={() => onChange(opt.value)}
-                    style={{
-                        padding: '4px 10px',
-                        borderRadius: 6,
-                        fontSize: '0.75rem',
-                        fontWeight: 500,
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        background: value === opt.value ? ACCENT : 'transparent',
-                        color: value === opt.value ? '#0a0e17' : GD.text2,
-                    }}
-                >
+                <button key={opt.value} type="button" aria-pressed={value === opt.value} onClick={() => onChange(opt.value)} className="!px-2.5 !py-1 !text-xs">
                     {opt.label}
                 </button>
             ))}
@@ -206,27 +183,15 @@ function KpiCard({
     sub?: string;
     trend?: 'up' | 'down' | null;
     color?: string;
-    icon?: string;
+    icon?: React.ReactNode;
 }) {
     return (
-        <div
-            style={{
-                background: GD.card,
-                border: `1px solid ${GD.border}`,
-                borderRadius: 14,
-                padding: '1.125rem 1.25rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-            }}
-        >
+        <div className="card flex flex-col gap-1.5 px-5 py-4">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: GD.muted, fontSize: '0.6875rem', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600 }}>
-                    {label}
-                </span>
-                {icon && <span style={{ fontSize: '1rem' }}>{icon}</span>}
+                <span className="text-sm font-medium text-fg-muted">{label}</span>
+                {icon && <span className="text-fg-subtle">{icon}</span>}
             </div>
-            <span style={{ color: color ?? GD.text, fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.15 }}>
+            <span className="amount text-2xl" style={{ color: color ?? GD.text, lineHeight: 1.2 }}>
                 {value}
             </span>
             {sub && (
@@ -244,11 +209,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
         <div style={{
-            background: GD.card2,
-            border: `1px solid ${GD.border2}`,
+            background: GD.card,
+            border: `1px solid ${GD.border}`,
             borderRadius: 10,
             padding: '0.75rem 1rem',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--shadow-pop)',
             fontSize: '0.8125rem',
         }}>
             <p style={{ color: GD.text, fontWeight: 600, marginBottom: 6 }}>{label}</p>
@@ -261,12 +226,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
 };
 
-const axisStyle = { fontSize: 11, fill: GD.muted };
-const gridStyle = { stroke: GD.border, strokeDasharray: '3 3' };
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
+    // Real colour values for the SVG charts (follow the theme)
+    const C = useThemeColors();
+    const ACCENT = C.accent;
+    const ACCENT2 = C.info;
+    const INCOME_C = C.positive;
+    const EXPENSE_C = C.negative;
+    const PURPLE_C = C.info;
+    const axisStyle = { fontSize: 11, fill: C['fg-subtle'] };
+    const gridStyle = { stroke: C.line, strokeDasharray: '3 3', vertical: false };
+    const GDs = { ...GD, card: C.surface };
+
     // ── Data state ──
     const [wallets, setWallets] = useState<Wallet[]>([]);
     const [walletId, setWalletId] = useState<number | null>(null);
@@ -343,11 +317,11 @@ export default function AnalyticsPage() {
 
         return (
             <div style={{
-                background: GD.card2,
-                border: `1px solid ${GD.border2}`,
+                background: GD.card,
+                border: `1px solid ${GD.border}`,
                 borderRadius: 10,
                 padding: '0.75rem 1rem',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                boxShadow: 'var(--shadow-pop)',
                 fontSize: '0.8125rem',
                 maxWidth: 300,
                 minWidth: 180,
@@ -400,165 +374,74 @@ export default function AnalyticsPage() {
 
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
-        <div
-            className="grigou-dark"
-            style={{
-                minHeight: '100vh',
-                background: GD.bg,
-                fontFamily: "'DM Sans', system-ui, sans-serif",
-                WebkitFontSmoothing: 'antialiased',
-            }}
-        >
-            {/* ── Header ── */}
-            <header style={{
-                borderBottom: `1px solid ${GD.border}`,
-                background: GD.card,
-                padding: '0.875rem 1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '1rem',
-                flexWrap: 'wrap',
-                position: 'sticky',
-                top: 0,
-                zIndex: 40,
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                    <Link
-                        href="/dashboard"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.375rem',
-                            fontSize: '0.8125rem',
-                            color: GD.muted,
-                            textDecoration: 'none',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: 8,
-                            transition: 'color 0.15s',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.color = GD.text)}
-                        onMouseLeave={e => (e.currentTarget.style.color = GD.muted)}
-                    >
-                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Tableau de bord
-                    </Link>
-                    <span style={{ color: GD.border2 }}>·</span>
-                    <h1 style={{ color: GD.text, fontSize: '1rem', fontWeight: 600, margin: 0 }}>
-                        📊 Analyses
-                    </h1>
-                </div>
+        <div className="min-h-screen">
+            <AppHeader />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+            <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4 px-4 pt-6 md:px-6 md:pt-8">
+                <div>
+                    <p className="eyebrow mb-1">Analyses</p>
+                    <h1 className="text-2xl font-semibold">Évolution de vos finances</h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                     <select
                         value={walletId ?? ''}
                         onChange={e => setWalletId(parseInt(e.target.value))}
-                        style={{
-                            padding: '0.375rem 0.75rem',
-                            borderRadius: 8,
-                            border: `1px solid ${GD.border2}`,
-                            background: GD.card2,
-                            color: GD.text,
-                            fontSize: '0.8125rem',
-                            cursor: 'pointer',
-                        }}
+                        aria-label="Portefeuille"
+                        className="field h-9 w-auto !py-1"
                     >
                         {wallets.map(w => (
                             <option key={w.id} value={w.id}>
-                                {w.name}{w.owner_name ? ` (${w.owner_name})` : ''}
+                                {w.name}{w.owner_name ? ` · ${w.owner_name}` : ''}
                             </option>
                         ))}
                     </select>
-
                     <select
                         value={months}
                         onChange={e => setMonths(parseInt(e.target.value))}
-                        style={{
-                            padding: '0.375rem 0.75rem',
-                            borderRadius: 8,
-                            border: `1px solid ${GD.border2}`,
-                            background: GD.card2,
-                            color: GD.text,
-                            fontSize: '0.8125rem',
-                            cursor: 'pointer',
-                        }}
+                        aria-label="Période"
+                        className="field h-9 w-auto !py-1"
                     >
                         <option value={3}>3 derniers mois</option>
                         <option value={6}>6 derniers mois</option>
                         <option value={12}>12 derniers mois</option>
                         <option value={24}>24 derniers mois</option>
                     </select>
-
-                    <button
-                        onClick={fetchData}
-                        style={{
-                            padding: '0.375rem 0.75rem',
-                            borderRadius: 8,
-                            border: `1px solid ${GD.border2}`,
-                            background: 'transparent',
-                            color: GD.text2,
-                            fontSize: '0.8125rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.375rem',
-                        }}
-                    >
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Actualiser
+                    <button onClick={fetchData} className="btn-secondary h-9" title="Actualiser">
+                        <RefreshCw className="h-4 w-4" aria-hidden />
+                        <span className="hidden sm:inline">Actualiser</span>
                     </button>
                 </div>
-            </header>
+            </div>
 
             {/* ── Body ── */}
-            <main style={{ maxWidth: 1200, margin: '0 auto', padding: '2rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 md:px-6">
 
                 {error && (
-                    <div style={{
-                        background: 'rgba(239,68,68,0.1)',
-                        border: '1px solid rgba(239,68,68,0.3)',
-                        borderRadius: 10,
-                        padding: '0.875rem 1.25rem',
-                        color: '#fca5a5',
-                        fontSize: '0.875rem',
-                    }}>
+                    <div className="rounded-lg border border-negative/30 bg-negative/10 px-4 py-3 text-sm text-negative" role="alert">
                         {error}
                     </div>
                 )}
 
                 {loading && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', padding: '5rem 0', color: GD.muted }}>
-                        <div style={{
-                            width: 24, height: 24,
-                            border: `2px solid ${GD.border2}`,
-                            borderTopColor: ACCENT,
-                            borderRadius: '50%',
-                            animation: 'spin 0.8s linear infinite',
-                        }} />
-                        <span style={{ fontSize: '0.9375rem' }}>Chargement des analyses…</span>
-                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    <div className="flex items-center justify-center gap-3 py-20 text-fg-muted" role="status">
+                        <Loader2 className="h-5 w-5 animate-spin text-accent" aria-hidden />
+                        <span className="text-sm">Chargement des analyses…</span>
                     </div>
                 )}
 
                 {!loading && data && s && (
                     <>
                         {/* ── KPIs ── */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
                             <KpiCard
                                 label="Solde actuel"
                                 value={fmt(s.currentBalance)}
                                 color={s.currentBalance >= 0 ? ACCENT : EXPENSE_C}
-                                icon="💰"
                             />
                             <KpiCard
                                 label="Revenus ce mois"
                                 value={fmt(s.currentMonth.income)}
                                 color={ACCENT}
-                                icon="📈"
                                 trend={s.currentMonth.income >= s.prevMonth.income ? 'up' : 'down'}
                                 sub={s.prevMonth.income > 0 ? `vs ${fmt(s.prevMonth.income)} le mois dernier` : undefined}
                             />
@@ -566,7 +449,6 @@ export default function AnalyticsPage() {
                                 label="Dépenses ce mois"
                                 value={fmt(s.currentMonth.outcome)}
                                 color={EXPENSE_C}
-                                icon="📉"
                                 trend={s.currentMonth.outcome <= s.prevMonth.outcome ? 'up' : 'down'}
                                 sub={s.prevMonth.outcome > 0 ? `vs ${fmt(s.prevMonth.outcome)} le mois dernier` : undefined}
                             />
@@ -574,14 +456,13 @@ export default function AnalyticsPage() {
                                 label="Taux d'épargne"
                                 value={`${s.savingsRate}%`}
                                 color={s.savingsRate >= 0 ? ACCENT : EXPENSE_C}
-                                icon="🏦"
                                 sub={`sur ${months} mois · ${fmt(s.periodIncome - s.periodOutcome)} net`}
                             />
                         </div>
 
                         {/* ── Revenus vs Dépenses ── */}
                         <ChartCard
-                            title="📅 Revenus vs Dépenses"
+                            title="Revenus et dépenses"
                             subtitle="Barres opaques = réel · transparentes = prévisions"
                             controls={
                                 <>
@@ -644,7 +525,7 @@ export default function AnalyticsPage() {
 
                         {/* ── Solde cumulé ── */}
                         <ChartCard
-                            title="📈 Évolution du solde cumulé"
+                            title="Évolution du solde"
                             subtitle="La zone pointillée représente les prévisions basées sur vos récurrences"
                             controls={
                                 <>
@@ -711,7 +592,7 @@ export default function AnalyticsPage() {
                                             strokeWidth={2.5}
                                             name="Solde cumulé"
                                             dot={false}
-                                            activeDot={{ r: 5, fill: PURPLE_C, stroke: GD.card, strokeWidth: 2 }}
+                                            activeDot={{ r: 5, fill: PURPLE_C, stroke: GDs.card, strokeWidth: 2 }}
                                         />
                                     </AreaChart>
                                 ) : (
@@ -728,7 +609,7 @@ export default function AnalyticsPage() {
                                             strokeWidth={2.5}
                                             name="Solde cumulé"
                                             dot={false}
-                                            activeDot={{ r: 5, fill: PURPLE_C, stroke: GD.card, strokeWidth: 2 }}
+                                            activeDot={{ r: 5, fill: PURPLE_C, stroke: GDs.card, strokeWidth: 2 }}
                                         />
                                     </LineChart>
                                 )}
@@ -737,15 +618,15 @@ export default function AnalyticsPage() {
 
                         {/* ── Catégories ── */}
                         <ChartCard
-                            title="🏷️ Répartition par catégorie"
+                            title="Répartition par catégorie"
                             controls={
                                 <>
                                     <SegmentedControl<'outcome' | 'income'>
                                         value={catTab}
                                         onChange={setCatTab}
                                         options={[
-                                            { value: 'outcome', label: '💸 Dépenses' },
-                                            { value: 'income', label: '💰 Revenus' },
+                                            { value: 'outcome', label: 'Dépenses' },
+                                            { value: 'income', label: 'Revenus' },
                                         ]}
                                     />
                                     <SegmentedControl<CatDisplayType>
@@ -788,14 +669,13 @@ export default function AnalyticsPage() {
                                             <div key={cat.category} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                                                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
                                                 <span style={{ flex: 1, fontSize: '0.8125rem', color: GD.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                                    {cat.icon && <span>{cat.icon}</span>}
                                                     {cat.category}
                                                 </span>
                                                 <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: GD.text, flexShrink: 0 }}>
                                                     {fmtFull(cat.total)}
                                                 </span>
                                                 <div style={{ width: 64, background: GD.card3, borderRadius: 9999, height: 5, flexShrink: 0 }}>
-                                                    <div style={{ width: `${cat.percentage}%`, background: PIE_COLORS[i % PIE_COLORS.length], height: 5, borderRadius: 9999 }} />
+                                                    <div style={{ width: `${cat.percentage}%`, background: cat.color || PIE_COLORS[i % PIE_COLORS.length], height: 5, borderRadius: 9999 }} />
                                                 </div>
                                                 <span style={{ fontSize: '0.7rem', color: GD.muted, width: 28, textAlign: 'right', flexShrink: 0 }}>
                                                     {cat.percentage}%
@@ -820,7 +700,7 @@ export default function AnalyticsPage() {
                                                 const cat = data.categoryBreakdown[catTab].find(c => c.category === payload.value);
                                                 return (
                                                     <text x={x} y={y} textAnchor="end" dominantBaseline="middle" fill={GD.text2} fontSize={12}>
-                                                        {cat?.icon ? `${cat.icon} ` : ''}{payload.value}
+                                                        {payload.value}
                                                     </text>
                                                 );
                                             }}
@@ -843,7 +723,7 @@ export default function AnalyticsPage() {
 
                         {/* ── Solde net mensuel ── */}
                         <ChartCard
-                            title="⚖️ Solde mensuel net"
+                            title="Solde net par mois"
                             subtitle="Revenus − Dépenses · vert = excédent · rouge = déficit · transparent = prévision"
                             controls={
                                 <SegmentedControl<NetBalanceChartType>

@@ -2,20 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns';
-import Image from 'next/image';
 import { fr } from 'date-fns/locale';
+import {
+  CalendarClock, CalendarRange, ChevronDown, ChevronLeft, ChevronRight,
+  Clock, Loader2, Plus, TrendingDown, TrendingUp, Wallet as WalletIcon,
+} from 'lucide-react';
 import TransactionForm from '@/components/TransactionForm';
 import TransactionList, { Transaction } from '@/components/TransactionList';
-import BudgetChart from '@/components/BudgetChart';
 import StatsCard from '@/components/StatsCard';
-import PredictedTransactions from '@/components/PredictedTransactions';
 import WalletSelector from '@/components/WalletSelector';
 import WalletManager from '@/components/WalletManager';
-import UserMenu from '@/components/UserMenu';
 import InvitationsList from '@/components/InvitationsList';
 import BalanceAdjuster from '@/components/BalanceAdjuster';
+import AppHeader from '@/components/layout/AppHeader';
 import { useWallet } from '@/hooks/useWallet';
-import Link from 'next/dist/client/link';
+import { formatEUR } from '@/lib/format';
 
 interface PredictedTransaction {
   id: string;
@@ -84,117 +85,75 @@ function CalcDetail({
   const incomeTransactions = transactions.filter(t => t.type === 'income');
   const outcomeTransactions = transactions.filter(t => t.type === 'outcome');
 
-  const formatAmount = (amount: number) =>
-    new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  const Line = ({ t, sign }: { t: Transaction; sign: '+' | '−' }) => (
+    <div className="flex items-baseline justify-between gap-4 py-1">
+      <span className="min-w-0 truncate text-fg-muted">
+        <span className="amount mr-2 text-fg-subtle">{format(new Date(t.date), 'dd/MM', { locale: fr })}</span>
+        {t.description || <span className="italic text-fg-subtle">Sans description</span>}
+        {(t as any).is_predicted && <span className="badge ml-2 bg-info/10 !py-0 text-info">prévu</span>}
+      </span>
+      <span className={`amount shrink-0 ${sign === '+' ? 'text-positive' : 'text-negative'}`}>
+        {sign}{formatEUR(t.amount)}
+      </span>
+    </div>
+  );
+
+  const Total = ({ label, value, className = '' }: { label: string; value: string; className?: string }) => (
+    <div className={`mt-1 flex justify-between border-t border-line pt-2 font-semibold ${className}`}>
+      <span>{label}</span>
+      <span className="amount">{value}</span>
+    </div>
+  );
 
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-800 mb-8 text-sm overflow-hidden">
-      {/* Header cliquable */}
+    <div className="card mb-8 overflow-hidden text-sm">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-6 py-3 text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 transition-colors"
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-5 py-3 text-left text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       >
-        <span className="font-medium">💡 {title}</span>
-        <svg
-          className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <span className="font-medium">{title}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
 
-      {/* Contenu dépliable */}
       {open && (
-        <div className="px-6 pb-5 pt-1 border-t border-gray-700">
+        <div className="grid gap-6 border-t border-line px-5 py-4 md:grid-cols-2">
+          <div>
+            <p className="eyebrow mb-2">Revenus</p>
+            {incomeTransactions.length === 0 && <p className="py-1 text-fg-subtle">Aucun revenu</p>}
+            {incomeTransactions.map((t, i) => <Line key={t.id ?? i} t={t} sign="+" />)}
+            <Total label="Total revenus" value={`+${formatEUR(totalIncome)}`} className="text-positive" />
+          </div>
 
-          {/* --- Revenus --- */}
-          {incomeTransactions.length > 0 && (
-            <div className="mb-4">
-              <p className="text-green-400 font-semibold mb-2 uppercase tracking-wide text-xs">Revenus</p>
-              <div className="space-y-1 font-mono">
-                {incomeTransactions.map((t, i) => (
-                  <div key={t.id ?? i} className="flex justify-between text-gray-300">
-                    <span className="truncate max-w-xs text-gray-400">
-                      {format(new Date(t.date), 'dd/MM', { locale: fr })}
-                      {' · '}
-                      {t.description || <span className="italic text-gray-500">Sans description</span>}
-                      {(t as any).is_predicted && (
-                        <span className="ml-1 text-blue-400 text-xs">(prévu)</span>
-                      )}
-                    </span>
-                    <span className="text-green-400 ml-4 flex-shrink-0">+{formatAmount(t.amount)} €</span>
-                  </div>
-                ))}
-                <div className="flex justify-between border-t border-gray-700 pt-1 mt-1 text-green-400 font-bold">
-                  <span>Total revenus</span>
-                  <span>+{formatAmount(totalIncome)} €</span>
-                </div>
-              </div>
-            </div>
-          )}
+          <div>
+            <p className="eyebrow mb-2">Dépenses</p>
+            {outcomeTransactions.length === 0 && <p className="py-1 text-fg-subtle">Aucune dépense</p>}
+            {outcomeTransactions.map((t, i) => <Line key={t.id ?? i} t={t} sign="−" />)}
+            <Total label="Total dépenses" value={`−${formatEUR(totalOutcome)}`} className="text-negative" />
+          </div>
 
-          {/* --- Dépenses --- */}
-          {outcomeTransactions.length > 0 && (
-            <div className="mb-4">
-              <p className="text-red-400 font-semibold mb-2 uppercase tracking-wide text-xs">Dépenses</p>
-              <div className="space-y-1 font-mono">
-                {outcomeTransactions.map((t, i) => (
-                  <div key={t.id ?? i} className="flex justify-between text-gray-300">
-                    <span className="truncate max-w-xs text-gray-400">
-                      {format(new Date(t.date), 'dd/MM', { locale: fr })}
-                      {' · '}
-                      {t.description || <span className="italic text-gray-500">Sans description</span>}
-                      {(t as any).is_predicted && (
-                        <span className="ml-1 text-blue-400 text-xs">(prévu)</span>
-                      )}
-                    </span>
-                    <span className="text-red-400 ml-4 flex-shrink-0">−{formatAmount(t.amount)} €</span>
-                  </div>
-                ))}
-                <div className="flex justify-between border-t border-gray-700 pt-1 mt-1 text-red-400 font-bold">
-                  <span>Total dépenses</span>
-                  <span>−{formatAmount(totalOutcome)} €</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* --- Solde de la période --- */}
-          <div className="border-t border-gray-600 pt-3 mt-2 font-mono">
-            <div className="flex justify-between font-bold text-base">
-              <span className="text-gray-200">= Solde de la période</span>
-              <span className={balance >= 0 ? 'text-green-400' : 'text-red-400'}>
-                {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
+          <div className="md:col-span-2">
+            <div className="flex items-baseline justify-between rounded-lg bg-surface-2 px-4 py-3 text-base font-semibold">
+              <span className="text-fg">Flux net de la période</span>
+              <span className={`amount ${balance >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {balance >= 0 ? '+' : ''}{formatEUR(balance)}
               </span>
             </div>
           </div>
 
-          {/* --- Bloc cumulé (mode prédiction) --- */}
           {showCumulative && initialBalance !== undefined && cumulativeIncome !== undefined && cumulativeOutcome !== undefined && cumulativeBalance !== undefined && (
-            <div className="border-t border-gray-600 pt-3 mt-4 font-mono space-y-1">
-              <p className="text-gray-400 text-xs uppercase tracking-wide font-semibold mb-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <p className="eyebrow mb-2">
                 Solde au {predictionDate ? format(new Date(predictionDate), 'dd/MM/yyyy') : ''}
               </p>
-              <div className="flex justify-between text-gray-300">
-                <span>Solde initial</span>
-                <span className="text-white">{formatAmount(initialBalance)} €</span>
-              </div>
-              <div className="flex justify-between text-green-400">
-                <span>+ Revenus cumulés</span>
-                <span>+{formatAmount(cumulativeIncome)} €</span>
-              </div>
-              <div className="flex justify-between text-red-400">
-                <span>− Dépenses cumulées</span>
-                <span>−{formatAmount(cumulativeOutcome)} €</span>
-              </div>
-              <div className="flex justify-between font-bold text-base border-t border-gray-600 pt-2 mt-1">
-                <span className="text-gray-200">
-                  = Solde au {predictionDate ? format(new Date(predictionDate), 'dd/MM/yyyy') : ''}
-                </span>
-                <span className={cumulativeBalance >= 0 ? 'text-green-400' : 'text-red-400'}>
-                  {formatAmount(cumulativeBalance)} €
-                </span>
-              </div>
+              <div className="flex justify-between"><span className="text-fg-muted">Solde initial</span><span className="amount text-fg">{formatEUR(initialBalance)}</span></div>
+              <div className="flex justify-between"><span className="text-fg-muted">Revenus cumulés</span><span className="amount text-positive">+{formatEUR(cumulativeIncome)}</span></div>
+              <div className="flex justify-between"><span className="text-fg-muted">Dépenses cumulées</span><span className="amount text-negative">−{formatEUR(cumulativeOutcome)}</span></div>
+              <Total
+                label={`Solde au ${predictionDate ? format(new Date(predictionDate), 'dd/MM/yyyy') : ''}`}
+                value={formatEUR(cumulativeBalance)}
+                className={`text-base ${cumulativeBalance >= 0 ? 'text-fg' : 'text-negative'}`}
+              />
             </div>
           )}
         </div>
@@ -449,301 +408,265 @@ export default function Home() {
 
   // Label du titre de la section flux
   const fluxTitle = viewMode === 'current'
-    ? `Mois en cours (${format(new Date(), 'MMMM yyyy', { locale: fr })})`
+    ? format(new Date(), 'MMMM yyyy', { locale: fr })
     : viewMode === 'prediction'
-      ? 'Prévisions du mois'
-      : 'Période sélectionnée';
+      ? `Prévisions · ${format(new Date(predictionDate), 'MMMM yyyy', { locale: fr })}`
+      : `Du ${format(new Date(dateRange.start), 'd MMM yyyy', { locale: fr })} au ${format(new Date(dateRange.end), 'd MMM yyyy', { locale: fr })}`;
 
   // Label du titre du bloc dépliable flux
-  const calcFluxTitle = viewMode === 'current'
-    ? `Détail — Mois de ${format(new Date(), 'MMMM yyyy', { locale: fr })}`
-    : viewMode === 'prediction'
-      ? `Détail — Mois de ${format(new Date(predictionDate), 'MMMM yyyy', { locale: fr })}`
-      : `Détail — Du ${format(new Date(dateRange.start), 'dd/MM/yyyy')} au ${format(new Date(dateRange.end), 'dd/MM/yyyy')}`;
+  const calcFluxTitle = viewMode === 'prediction'
+    ? `Détail du calcul · ${format(new Date(predictionDate), 'MMMM yyyy', { locale: fr })}`
+    : `Détail du calcul · ${format(new Date(), 'MMMM yyyy', { locale: fr })}`;
+
+  const header = (
+    <AppHeader
+      actions={
+        <WalletSelector
+          selectedWalletId={selectedWalletId}
+          onWalletChange={selectWallet}
+          onManageWallets={() => setShowWalletManager(true)}
+        />
+      }
+    />
+  );
+
+  const walletManager = showWalletManager && (
+    <WalletManager
+      onClose={() => setShowWalletManager(false)}
+      onWalletCreated={() => {
+        // @ts-ignore
+        if (window.refreshWalletSelector) window.refreshWalletSelector();
+      }}
+    />
+  );
+
+  const Spinner = ({ label }: { label: string }) => (
+    <div className="flex h-64 items-center justify-center gap-3 text-fg-muted" role="status">
+      <Loader2 className="h-5 w-5 animate-spin text-accent" aria-hidden />
+      <span className="text-sm">{label}</span>
+    </div>
+  );
 
   if (!isInitialized) {
     return (
-      <main className="min-h-screen p-4 md:p-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-center h-64">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-            <span className="text-lg text-gray-600">Chargement...</span>
-          </div>
-        </div>
-      </main>
+      <div className="min-h-screen">
+        {header}
+        <Spinner label="Chargement…" />
+      </div>
     );
   }
 
-  return (
-    <main className="min-h-screen p-4 md:p-8 bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-4 overflow-hidden">
-          <h1 className="text-2xl md:text-4xl font-bold text-gray-800 flex items-center gap-3 min-w-0">
-            <Image src="/clear-logo.png" alt="Grigou Logo" width={48} height={48} className="object-contain" priority />
-            Grigou - Gestionnaire de Budget
-          </h1>
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <WalletSelector
-              selectedWalletId={selectedWalletId}
-              onWalletChange={selectWallet}
-              onManageWallets={() => setShowWalletManager(true)}
-            />
-            <Link
-              href="/analytics"
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg
-             text-[var(--text-muted)] hover:text-[var(--text-primary)]
-             hover:bg-[var(--hover-bg)] transition-colors"
-              title="Analyses et graphiques"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <span className="hidden sm:inline">Analyses</span>
-            </Link>
-            <UserMenu />
+  // New account: no wallet yet
+  if (!selectedWalletId) {
+    return (
+      <div className="min-h-screen">
+        {header}
+        <main className="mx-auto max-w-7xl px-4 py-16 md:px-6">
+          <InvitationsList onInvitationAccepted={handleInvitationAccepted} />
+          <div className="card mx-auto max-w-md p-8 text-center">
+            <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <WalletIcon className="h-5 w-5" aria-hidden />
+            </span>
+            <h1 className="text-lg font-semibold">Créez votre premier portefeuille</h1>
+            <p className="mt-1.5 text-sm text-fg-muted">
+              Un portefeuille regroupe les transactions d&apos;un compte : compte courant, épargne, budget commun…
+            </p>
+            <button onClick={() => setShowWalletManager(true)} className="btn-primary mt-6">
+              <Plus className="h-4 w-4" aria-hidden />
+              Créer un portefeuille
+            </button>
           </div>
-        </div>
+        </main>
+        {walletManager}
+      </div>
+    );
+  }
 
-        {/* Invitations en attente */}
+  const MODES: { value: ViewMode; label: string; Icon: typeof Clock }[] = [
+    { value: 'current', label: 'Ce mois-ci', Icon: Clock },
+    { value: 'period', label: 'Période', Icon: CalendarRange },
+    { value: 'prediction', label: 'Prévision', Icon: CalendarClock },
+  ];
+
+  const StepButtons = ({ onStep }: { onStep: (m: number) => void }) => (
+    <div className="flex">
+      <button onClick={() => onStep(-1)} className="btn-icon h-9 w-9" aria-label="Mois précédent" title="Mois précédent">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button onClick={() => onStep(1)} className="btn-icon h-9 w-9" aria-label="Mois suivant" title="Mois suivant">
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
+  const balanceTone = (v: number) => (v >= 0 ? 'positive' : 'negative') as 'positive' | 'negative';
+
+  return (
+    <div className="min-h-screen">
+      {header}
+
+      <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
         <InvitationsList onInvitationAccepted={handleInvitationAccepted} />
 
-        {/* View Mode Controls */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-4 justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Mode :</span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-300">
-                <button
-                  onClick={() => setViewMode('current')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'current' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
-                >
-                  📍 Vue actuelle
-                </button>
-                <button
-                  onClick={() => setViewMode('period')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'period' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
-                >
-                  📅 Période
-                </button>
-                <button
-                  onClick={() => setViewMode('prediction')}
-                  className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${viewMode === 'prediction' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
-                >
-                  🔮 Prédiction
-                </button>
-              </div>
-            </div>
+        {/* Page title + view mode */}
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="eyebrow mb-1">Tableau de bord</p>
+            <h1 className="text-2xl font-semibold first-letter:uppercase">{fluxTitle}</h1>
+          </div>
 
+          <div className="flex flex-wrap items-center gap-3">
             {viewMode === 'period' && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <label className="text-sm font-medium text-gray-700">Du:</label>
-                <input type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className="border border-gray-300 rounded px-3 py-1 text-sm" />
-                <span className="text-gray-500">au</span>
-                <input type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className="border border-gray-300 rounded px-3 py-1 text-sm" />
-                <div className="flex gap-1 ml-2">
-                  <button onClick={() => adjustDateRange(-1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">← Mois</button>
-                  <button onClick={() => adjustDateRange(1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Mois →</button>
-                </div>
+              <div className="flex items-center gap-2">
+                <input type="date" aria-label="Date de début" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className="field h-9 w-auto !py-1" />
+                <span className="text-sm text-fg-subtle">→</span>
+                <input type="date" aria-label="Date de fin" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className="field h-9 w-auto !py-1" />
+                <StepButtons onStep={adjustDateRange} />
               </div>
             )}
-
             {viewMode === 'prediction' && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <label className="text-sm font-medium text-gray-700">Prédiction au :</label>
-                <input type="date" value={predictionDate} onChange={(e) => setPredictionDate(e.target.value)} min={format(new Date(), 'yyyy-MM-dd')} className="border border-gray-300 rounded px-3 py-1 text-sm" />
-                <div className="flex gap-1 ml-2">
-                  <button onClick={() => adjustPredictionDate(-1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">← Mois</button>
-                  <button onClick={() => adjustPredictionDate(1)} className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded">Mois →</button>
-                </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="prediction-date" className="text-sm text-fg-muted">Solde prévu au</label>
+                <input id="prediction-date" type="date" value={predictionDate} onChange={(e) => setPredictionDate(e.target.value)} min={format(new Date(), 'yyyy-MM-dd')} className="field h-9 w-auto !py-1" />
+                <StepButtons onStep={adjustPredictionDate} />
               </div>
             )}
 
-            {viewMode === 'current' && (
-              <div className="text-sm text-gray-600">
-                📍 Solde au {format(new Date(), 'dd MMMM yyyy', { locale: fr })}
-              </div>
-            )}
+            <div className="segmented" role="group" aria-label="Mode d'affichage">
+              {MODES.map(({ value, label, Icon }) => (
+                <button key={value} type="button" aria-pressed={viewMode === value} onClick={() => setViewMode(value)}>
+                  <Icon className="h-4 w-4" aria-hidden />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-              <span className="text-lg text-gray-600">Chargement des données...</span>
-            </div>
-          </div>
+          <Spinner label="Chargement des données…" />
         ) : (
           <>
-            {/* =============================================
-                SECTION 1 : Flux de la période / du mois
-            ============================================= */}
-            {displayedMonthlyStats && (
-              <>
-                <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                  📅 {fluxTitle}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? 'Revenus du mois' : 'Revenus'}
-                    amount={displayedMonthlyStats.totalIncome}
-                    type="income"
-                    icon="↗"
-                  />
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? 'Dépenses du mois' : 'Dépenses'}
-                    amount={displayedMonthlyStats.totalOutcome}
-                    type="outcome"
-                    icon="↘"
-                  />
-                  <StatsCard
-                    walletId={selectedWalletId!}
-                    title={viewMode === 'prediction' ? 'Solde du mois' : 'Solde'}
-                    amount={displayedMonthlyStats.balance}
-                    type={displayedMonthlyStats.balance >= 0 ? 'income' : 'outcome'}
-                    icon="="
-                  />
-                </div>
+            {/* KPIs */}
+            {stats && displayedMonthlyStats && (
+              <div className="mb-4 grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+                {viewMode === 'current' && (
+                  <div className="card col-span-2 p-4 md:p-5 lg:col-span-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-fg-muted">Solde actuel</p>
+                      <span className="text-xs text-fg-subtle">au {format(new Date(), 'd MMM', { locale: fr })}</span>
+                    </div>
+                    <div className="mt-2">
+                      <BalanceAdjuster walletId={selectedWalletId} currentBalance={stats.cumulativeBalance} onBalanceAdjusted={fetchData} />
+                    </div>
+                    <p className="mt-1 text-xs text-fg-subtle">Cliquez sur le montant pour l&apos;ajuster</p>
+                  </div>
+                )}
 
-                {/* Bloc dépliable — détail des transactions de la période */}
-                {viewMode !== 'period' && (
-                  <CalcDetail
-                    title={calcFluxTitle}
-                    transactions={monthDetailTransactions}
-                    totalIncome={displayedMonthlyStats.totalIncome}
-                    totalOutcome={displayedMonthlyStats.totalOutcome}
-                    balance={displayedMonthlyStats.balance}
+                {viewMode === 'period' && (
+                  <StatsCard
+                    className="col-span-2 lg:col-span-1"
+                    title="Solde en fin de période"
+                    amount={stats.cumulativeBalance}
+                    tone={stats.cumulativeBalance >= 0 ? 'neutral' : 'negative'}
+                    hint={`au ${format(new Date(dateRange.end), 'd MMM yyyy', { locale: fr })}`}
                   />
                 )}
-              </>
-            )}
 
-            {/* =============================================
-                SECTION 2 : Solde cumulé
-            ============================================= */}
-            {stats && (
-              viewMode === 'current' ? (
-                <>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                    💰 Solde actuel
-                    <span className="text-gray-500 ml-1 text-sm">
-                      tsc                     ( {format(new Date(), 'EEEE dd MMMM', { locale: fr })} )
-                    </span>
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                      <BalanceAdjuster
-                        walletId={selectedWalletId!}
-                        currentBalance={stats.cumulativeBalance}
-                        onBalanceAdjusted={fetchData}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : viewMode === 'prediction' ? (
-                <>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                    💰 Solde prévisionnel
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                    <StatsCard walletId={selectedWalletId!} title="Revenus cumulés" amount={stats.cumulativeIncome} type="income" icon="↗" />
-                    <StatsCard walletId={selectedWalletId!} title="Dépenses cumulées" amount={stats.cumulativeOutcome} type="outcome" icon="↘" />
-                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
-                      </div>
-                      <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                        {stats.cumulativeBalance.toFixed(2)} €
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Bloc dépliable — détail du solde cumulé */}
-                  <CalcDetail
-                    title={`Détail — Solde au ${format(new Date(predictionDate), 'dd/MM/yyyy')}`}
-                    transactions={displayedTransactions}
-                    totalIncome={stats.cumulativeIncome}
-                    totalOutcome={stats.cumulativeOutcome}
-                    balance={stats.cumulativeBalance - derivedInitialBalance}
-                    showCumulative
-                    initialBalance={derivedInitialBalance}
-                    cumulativeIncome={stats.cumulativeIncome}
-                    cumulativeOutcome={stats.cumulativeOutcome}
-                    cumulativeBalance={stats.cumulativeBalance}
-                    predictionDate={predictionDate}
+                {viewMode === 'prediction' && (
+                  <StatsCard
+                    className="col-span-2 lg:col-span-1"
+                    title="Solde prévisionnel"
+                    amount={stats.cumulativeBalance}
+                    tone={stats.cumulativeBalance >= 0 ? 'neutral' : 'negative'}
+                    hint={`au ${format(new Date(predictionDate), 'd MMM yyyy', { locale: fr })}`}
                   />
-                </>
-              ) : viewMode === 'period' ? (
-                /* =============================================
-                   FIX : Mode période — Solde en fin de période
-                   Avant ce fix, cette branche retournait null.
-                   stats.cumulativeBalance contient le solde réel
-                   (initial_balance + toutes transactions jusqu'à endDate)
-                ============================================= */
-                <>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                    💰 Solde au {format(new Date(dateRange.end), 'dd MMMM yyyy', { locale: fr })}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className={`rounded-lg p-6 shadow-sm border ${stats.cumulativeBalance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-red-50 border-red-200'}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium text-gray-600">Solde cumulé</h3>
-                        <span className="text-xs text-gray-400">
-                          au {format(new Date(dateRange.end), 'dd/MM/yyyy')}
-                        </span>
-                      </div>
-                      <p className={`text-3xl font-bold ${stats.cumulativeBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                        {stats.cumulativeBalance.toFixed(2)} €
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Solde initial ({derivedInitialBalance.toFixed(2)} €)
-                        {stats.balance >= 0 ? ' + ' : ' − '}
-                        flux de la période ({Math.abs(stats.balance).toFixed(2)} €)
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : null
-            )}
+                )}
 
-            {/* Transaction Form - current mode only */}
-            {viewMode === 'current' && (
-              <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">📝 Ajouter une Transaction</h2>
-                <TransactionForm onTransactionAdded={handleTransactionAdded} selectedWalletId={selectedWalletId!} />
+                <StatsCard
+                  title={viewMode === 'period' ? 'Revenus de la période' : 'Revenus du mois'}
+                  amount={displayedMonthlyStats.totalIncome}
+                  tone="positive"
+                  icon={<TrendingUp className="h-4 w-4" aria-hidden />}
+                />
+                <StatsCard
+                  title={viewMode === 'period' ? 'Dépenses de la période' : 'Dépenses du mois'}
+                  amount={displayedMonthlyStats.totalOutcome}
+                  tone="negative"
+                  icon={<TrendingDown className="h-4 w-4" aria-hidden />}
+                />
+                <StatsCard
+                  title="Flux net"
+                  amount={displayedMonthlyStats.balance}
+                  tone={balanceTone(displayedMonthlyStats.balance)}
+                  hint={displayedMonthlyStats.balance >= 0 ? 'Vous épargnez sur la période' : 'Vous dépensez plus que vous ne gagnez'}
+                />
               </div>
             )}
 
-            {/* Transaction List */}
+            {/* Calculation details */}
+            {displayedMonthlyStats && viewMode === 'current' && (
+              <CalcDetail
+                title={calcFluxTitle}
+                transactions={monthDetailTransactions}
+                totalIncome={displayedMonthlyStats.totalIncome}
+                totalOutcome={displayedMonthlyStats.totalOutcome}
+                balance={displayedMonthlyStats.balance}
+              />
+            )}
+            {stats && viewMode === 'prediction' && (
+              <CalcDetail
+                title={`Détail du calcul · solde au ${format(new Date(predictionDate), 'dd/MM/yyyy')}`}
+                transactions={displayedTransactions}
+                totalIncome={stats.cumulativeIncome}
+                totalOutcome={stats.cumulativeOutcome}
+                balance={stats.cumulativeBalance - derivedInitialBalance}
+                showCumulative
+                initialBalance={derivedInitialBalance}
+                cumulativeIncome={stats.cumulativeIncome}
+                cumulativeOutcome={stats.cumulativeOutcome}
+                cumulativeBalance={stats.cumulativeBalance}
+                predictionDate={predictionDate}
+              />
+            )}
+            {stats && viewMode === 'period' && (
+              <p className="mb-8 text-xs text-fg-subtle">
+                Solde initial {formatEUR(derivedInitialBalance)} {stats.balance >= 0 ? '+' : '−'} flux de la période {formatEUR(Math.abs(stats.balance))}
+              </p>
+            )}
+
+            {/* Transactions + form */}
             {viewMode !== 'prediction' && (
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">📋 Historique des Transactions</h2>
-                <TransactionList
-                  transactions={displayedTransactions}
-                  onTransactionDeleted={handleTransactionDeleted}
-                  onTransactionUpdated={handleTransactionDeleted}
-                />
+              <div className={`grid items-start gap-6 ${viewMode === 'current' ? 'lg:grid-cols-[minmax(0,1fr)_360px]' : ''}`}>
+                <section className="card min-w-0" aria-labelledby="history-title">
+                  <div className="card-header">
+                    <h2 id="history-title" className="card-title">Transactions</h2>
+                    <span className="text-xs text-fg-subtle">{displayedTransactions.length} opération{displayedTransactions.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <TransactionList
+                    transactions={displayedTransactions}
+                    onTransactionDeleted={handleTransactionDeleted}
+                    onTransactionUpdated={handleTransactionDeleted}
+                  />
+                </section>
+
+                {viewMode === 'current' && (
+                  <section className="card lg:sticky lg:top-20" aria-labelledby="new-tx-title">
+                    <div className="card-header">
+                      <h2 id="new-tx-title" className="card-title">Nouvelle transaction</h2>
+                    </div>
+                    <div className="p-5">
+                      <TransactionForm onTransactionAdded={handleTransactionAdded} selectedWalletId={selectedWalletId} />
+                    </div>
+                  </section>
+                )}
               </div>
             )}
           </>
         )}
-      </div>
+      </main>
 
-      {/* Wallet Manager Modal */}
-      {showWalletManager && (
-        <WalletManager
-          onClose={() => setShowWalletManager(false)}
-          onWalletCreated={() => {
-            // @ts-ignore
-            if (window.refreshWalletSelector) window.refreshWalletSelector();
-          }}
-        />
-      )}
-    </main>
+      {walletManager}
+    </div>
   );
 }
