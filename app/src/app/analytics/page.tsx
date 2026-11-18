@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import { useThemeColors } from '@/components/theme/ThemeProvider';
@@ -286,8 +286,12 @@ export default function AnalyticsPage() {
             .catch(() => setError('Impossible de charger les portefeuilles'));
     }, []);
 
+    // Latest request wins when the wallet / period changes quickly
+    const requestId = useRef(0);
+
     const fetchData = useCallback(async () => {
         if (!walletId) return;
+        const id = ++requestId.current;
         setLoading(true);
         setError('');
         try {
@@ -296,12 +300,14 @@ export default function AnalyticsPage() {
                 fetch(`/api/transactions?walletId=${walletId}`),
             ]);
             if (!analyticsRes.ok) throw new Error();
-            setData(await analyticsRes.json());
-            setTransactions(txRes.ok ? await txRes.json() : []);
+            const [analytics, tx] = await Promise.all([analyticsRes.json(), txRes.ok ? txRes.json() : []]);
+            if (id !== requestId.current) return;
+            setData(analytics);
+            setTransactions(tx);
         } catch {
-            setError('Erreur lors du chargement des données');
+            if (id === requestId.current) setError('Erreur lors du chargement des données');
         } finally {
-            setLoading(false);
+            if (id === requestId.current) setLoading(false);
         }
     }, [walletId, months]);
 
@@ -434,14 +440,18 @@ export default function AnalyticsPage() {
                     </div>
                 )}
 
-                {loading && (
+                {/* Full-page loader only the first time; afterwards the charts stay and update in place */}
+                {loading && data && (
+                    <div className="pointer-events-none fixed inset-x-0 top-14 z-30 h-0.5 animate-pulse bg-accent/70" role="progressbar" aria-label="Mise à jour" />
+                )}
+                {loading && !data && (
                     <div className="flex items-center justify-center gap-3 py-20 text-fg-muted" role="status">
                         <Loader2 className="h-5 w-5 animate-spin text-accent" aria-hidden />
                         <span className="text-sm">Chargement des analyses…</span>
                     </div>
                 )}
 
-                {!loading && data && s && (
+                {data && s && (
                     <>
                         {/* ── KPIs ── */}
                         <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">

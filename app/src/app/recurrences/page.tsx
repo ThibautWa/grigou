@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ChevronDown, CircleStop, Loader2, Pencil, Plus, Repeat, Trash2, TrendingUp, Wallet, X } from 'lucide-react';
@@ -363,20 +363,31 @@ export default function RecurrencesPage() {
   const [stopping, setStopping] = useState<Series | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
 
+  const requestId = useRef(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Keeps the current list on screen while reloading (only the first load shows a spinner)
   const load = useCallback(async () => {
     if (!selectedWalletId) return;
+    const id = ++requestId.current;
     setError('');
+    setRefreshing(true);
     try {
       const res = await fetch(`/api/transactions?walletId=${selectedWalletId}`);
       if (!res.ok) throw new Error();
-      setTransactions(await res.json());
+      const rows = await res.json();
+      if (id === requestId.current) setTransactions(rows);
     } catch {
-      setError('Impossible de charger les récurrences.');
-      setTransactions([]);
+      if (id === requestId.current) {
+        setError('Impossible de charger les récurrences.');
+        setTransactions((t) => t ?? []);
+      }
+    } finally {
+      if (id === requestId.current) setRefreshing(false);
     }
   }, [selectedWalletId]);
 
-  useEffect(() => { setTransactions(null); load(); }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const { active, ended, income, outcome, incomeTotal, outcomeTotal } = useMemo(() => {
     const today = toDay(new Date());
@@ -416,6 +427,10 @@ export default function RecurrencesPage() {
           <WalletSelector selectedWalletId={selectedWalletId} onWalletChange={selectWallet} onManageWallets={() => setShowWalletManager(true)} />
         }
       />
+
+      {refreshing && transactions !== null && (
+        <div className="pointer-events-none fixed inset-x-0 top-14 z-30 h-0.5 animate-pulse bg-accent/70" role="progressbar" aria-label="Mise à jour" />
+      )}
 
       <main className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

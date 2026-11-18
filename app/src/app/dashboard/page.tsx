@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, addMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -192,7 +192,8 @@ export default function Home() {
   const [categories, setCategories] = useState<Array<{ id: number; name: string; icon: string; color: string }>>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [monthlyStats, setMonthlyStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // first load only
+  const [refreshing, setRefreshing] = useState(false);
   const [showWalletManager, setShowWalletManager] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>('current');
@@ -212,138 +213,75 @@ export default function Home() {
     }
   }, [selectedWalletId, isInitialized, viewMode, dateRange, predictionDate]);
 
+  // Latest request wins: quick successive changes (dates, mode, wallet) must not
+  // let an older, slower response overwrite a newer one.
+  const requestId = useRef(0);
+
+  /**
+   * Loads everything the dashboard shows, in parallel, and applies it in one go.
+   * Only the very first load shows the full-page spinner; later refreshes keep
+   * the current content on screen (see `refreshing`).
+   */
   const fetchData = async () => {
     if (!selectedWalletId) return;
-    setLoading(true);
+    const id = ++requestId.current;
+    setRefreshing(true);
+
+    const w = selectedWalletId;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+    const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+
+    let txUrl = `/api/transactions?walletId=${w}`;
+    let statsUrl = `/api/stats?walletId=${w}`;
+    let predUrl: string | null = null;
+    let monthUrl: string | null = null;
+
+    if (viewMode === 'period') {
+      txUrl += `&startDate=${dateRange.start}&endDate=${dateRange.end}`;
+      // Recurring occurrences falling in the period count in its income / expenses
+      statsUrl += `&startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=true`;
+      predUrl = `/api/predictions?walletId=${w}&startDate=${dateRange.start}&endDate=${dateRange.end}`;
+    } else if (viewMode === 'prediction') {
+      statsUrl += `&endDate=${predictionDate}&includePredictions=true`;
+      predUrl = `/api/predictions?walletId=${w}&startDate=${today}&endDate=${predictionDate}`;
+      const predDate = new Date(predictionDate);
+      monthUrl = `/api/stats?walletId=${w}&startDate=${format(startOfMonth(predDate), 'yyyy-MM-dd')}&endDate=${format(endOfMonth(predDate), 'yyyy-MM-dd')}&includePredictions=true`;
+    } else {
+      txUrl += `&startDate=${monthStart}&endDate=${today}`;
+      statsUrl += `&endDate=${today}&includePredictions=false`;
+      predUrl = `/api/predictions?walletId=${w}&startDate=${monthStart}&endDate=${monthEnd}`;
+      monthUrl = `/api/stats?walletId=${w}&startDate=${monthStart}&endDate=${monthEnd}&includePredictions=true`;
+    }
+
+    const getJson = async (url: string | null) => {
+      if (!url) return null;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${res.status} ${url}`);
+      return res.json();
+    };
+
     try {
-      await Promise.all([
-        fetchTransactions(),
-        fetchStats(),
-        fetchPredictions(),
-        fetchCategories(),
+      const [tx, st, pred, month, cats] = await Promise.all([
+        getJson(txUrl),
+        getJson(statsUrl),
+        getJson(predUrl),
+        getJson(monthUrl),
+        getJson('/api/categories'),
       ]);
-      if (viewMode === 'prediction' || viewMode === 'current') {
-        await fetchMonthlyStats();
-      }
+      if (id !== requestId.current) return; // a newer request is on its way
+      setTransactions(tx ?? []);
+      setStats(st);
+      setPredictions(pred ?? []);
+      setMonthlyStats(month);
+      setCategories(cats ?? []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    if (!selectedWalletId) return;
-    let url = `/api/transactions?walletId=${selectedWalletId}`;
-    if (viewMode === 'period') {
-      url += `&startDate=${dateRange.start}&endDate=${dateRange.end}`;
-    } else if (viewMode === 'current') {
-      url += `&startDate=${format(startOfMonth(new Date()), 'yyyy-MM-dd')}&endDate=${format(new Date(), 'yyyy-MM-dd')}`;
-    }
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    if (!selectedWalletId) return;
-    let url = `/api/stats?walletId=${selectedWalletId}`;
-    if (viewMode === 'period') {
-      // Recurring occurrences falling in the period count in its income / expenses
-      url += `&startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=true`;
-    } else if (viewMode === 'prediction') {
-      url += `&endDate=${predictionDate}&includePredictions=true`;
-    } else {
-      url += `&endDate=${format(new Date(), 'yyyy-MM-dd')}&includePredictions=false`;
-    }
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setStats(data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
-
-  const fetchMonthlyStats = async () => {
-    if (!selectedWalletId) return;
-    let monthStart: string;
-    let monthEnd: string;
-    let includePredictions = false;
-
-    if (viewMode === 'prediction') {
-      const predDate = new Date(predictionDate);
-      monthStart = format(startOfMonth(predDate), 'yyyy-MM-dd');
-      monthEnd = format(endOfMonth(predDate), 'yyyy-MM-dd');
-      includePredictions = true;
-    } else if (viewMode === 'current') {
-      const today = new Date();
-      monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
-      monthEnd = format(endOfMonth(today), 'yyyy-MM-dd');
-      includePredictions = true;
-    } else {
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/stats?walletId=${selectedWalletId}&startDate=${monthStart}&endDate=${monthEnd}&includePredictions=${includePredictions}`
-      );
-      const data = await response.json();
-      setMonthlyStats(data);
-    } catch (error) {
-      console.error('Error fetching monthly stats:', error);
-    }
-  };
-
-  const fetchPredictions = async () => {
-    if (!selectedWalletId) return;
-    if (viewMode === 'prediction') {
-      try {
-        const response = await fetch(
-          `/api/predictions?walletId=${selectedWalletId}&startDate=${format(new Date(), 'yyyy-MM-dd')}&endDate=${predictionDate}`
-        );
-        const data = await response.json();
-        setPredictions(data);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
+      if (id === requestId.current) {
+        setRefreshing(false);
+        setLoading(false);
       }
-    } else if (viewMode === 'current') {
-      try {
-        const response = await fetch(
-          `/api/predictions?walletId=${selectedWalletId}&startDate=${format(startOfMonth(new Date()), 'yyyy-MM-dd')}&endDate=${format(endOfMonth(new Date()), 'yyyy-MM-dd')}`
-        );
-        const data = await response.json();
-        setPredictions(data);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
-      }
-    } else if (viewMode === 'period') {
-      try {
-        const response = await fetch(
-          `/api/predictions?walletId=${selectedWalletId}&startDate=${dateRange.start}&endDate=${dateRange.end}`
-        );
-        const data = await response.json();
-        setPredictions(data);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
-      }
-    } else {
-      setPredictions([]);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories');
-      const data = await response.json();
-      setCategories(data);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
     }
   };
 
@@ -586,6 +524,11 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Background refresh: thin bar under the header, content stays in place */}
+        {refreshing && !loading && (
+          <div className="pointer-events-none fixed inset-x-0 top-14 z-30 h-0.5 animate-pulse bg-accent/70" role="progressbar" aria-label="Mise à jour" />
+        )}
 
         {loading ? (
           <Spinner label="Chargement des données…" />
