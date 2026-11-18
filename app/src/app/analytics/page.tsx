@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/AppHeader';
 import { useThemeColors } from '@/components/theme/ThemeProvider';
@@ -26,6 +26,9 @@ interface MonthlyData {
     predicted_outcome: number;
     is_future: boolean;
 }
+
+/** System category created by the balance adjuster (see api/wallets/[id]/adjust). */
+const ADJUSTMENT_CATEGORY = 'Ajustement';
 
 interface CategoryData {
     category: string;
@@ -258,6 +261,15 @@ export default function AnalyticsPage() {
     const [showTxOnHover, setShowTxOnHover] = useState(false);
     const [netChartType, setNetChartType] = useState<NetBalanceChartType>('bar');
     const [catTab, setCatTab] = useState<'outcome' | 'income'>('outcome');
+
+    // Balance adjustments are corrections, not real spending or income: leave
+    // them out of the breakdown and recompute the shares without them.
+    const catData: CategoryData[] = useMemo(() => {
+        if (!data) return [];
+        const rows = data.categoryBreakdown[catTab].filter((c) => c.category !== ADJUSTMENT_CATEGORY);
+        const total = rows.reduce((sum, c) => sum + Number(c.total), 0);
+        return rows.map((c) => ({ ...c, percentage: total > 0 ? Math.round((Number(c.total) / total) * 100) : 0 }));
+    }, [data, catTab]);
     const [catDisplay, setCatDisplay] = useState<CatDisplayType>('pie');
 
     // Load wallets
@@ -470,7 +482,7 @@ export default function AnalyticsPage() {
                                         value={revenueChartType}
                                         onChange={setRevenueChartType}
                                         options={[
-                                            { value: 'bar', label: '▋ Barres' },
+                                            { value: 'bar', label: 'Barres' },
                                             { value: 'area', label: '◟ Aires' },
                                         ]}
                                     />
@@ -618,7 +630,8 @@ export default function AnalyticsPage() {
 
                         {/* ── Catégories ── */}
                         <ChartCard
-                            title="Répartition par catégorie"
+                            title={catTab === 'outcome' ? 'Dépenses par catégorie' : 'Revenus par catégorie'}
+                            subtitle={`Part de chaque catégorie sur ${months} mois, hors ajustements de solde`}
                             controls={
                                 <>
                                     <SegmentedControl<'outcome' | 'income'>
@@ -633,14 +646,14 @@ export default function AnalyticsPage() {
                                         value={catDisplay}
                                         onChange={setCatDisplay}
                                         options={[
-                                            { value: 'pie', label: '◔ Camembert' },
-                                            { value: 'bar', label: '▋ Barres' },
+                                            { value: 'pie', label: 'Anneau' },
+                                            { value: 'bar', label: 'Barres' },
                                         ]}
                                     />
                                 </>
                             }
                         >
-                            {data.categoryBreakdown[catTab].length === 0 ? (
+                            {catData.length === 0 ? (
                                 <p style={{ color: GD.muted, textAlign: 'center', padding: '3rem 0', fontSize: '0.875rem' }}>
                                     Aucune donnée pour cette période.
                                 </p>
@@ -649,7 +662,7 @@ export default function AnalyticsPage() {
                                     <ResponsiveContainer width={220} height={220}>
                                         <PieChart>
                                             <Pie
-                                                data={data.categoryBreakdown[catTab]}
+                                                data={catData}
                                                 dataKey="total"
                                                 nameKey="category"
                                                 cx="50%" cy="50%"
@@ -657,7 +670,7 @@ export default function AnalyticsPage() {
                                                 innerRadius={52}
                                                 paddingAngle={2}
                                             >
-                                                {data.categoryBreakdown[catTab].map((cat, i) => (
+                                                {catData.map((cat, i) => (
                                                     <Cell key={i} fill={cat.color || PIE_COLORS[i % PIE_COLORS.length]} />
                                                 ))}
                                             </Pie>
@@ -665,7 +678,7 @@ export default function AnalyticsPage() {
                                         </PieChart>
                                     </ResponsiveContainer>
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 200 }}>
-                                        {data.categoryBreakdown[catTab].slice(0, 10).map((cat, i) => (
+                                        {catData.slice(0, 10).map((cat, i) => (
                                             <div key={cat.category} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                                                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
                                                 <span style={{ flex: 1, fontSize: '0.8125rem', color: GD.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -685,9 +698,9 @@ export default function AnalyticsPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <ResponsiveContainer width="100%" height={Math.max(240, data.categoryBreakdown[catTab].length * 36)}>
+                                <ResponsiveContainer width="100%" height={Math.max(240, catData.length * 36)}>
                                     <BarChart
-                                        data={data.categoryBreakdown[catTab].slice(0, 12)}
+                                        data={catData.slice(0, 12)}
                                         layout="vertical"
                                         margin={{ left: 8 }}
                                     >
@@ -697,7 +710,7 @@ export default function AnalyticsPage() {
                                             type="category"
                                             dataKey="category"
                                             tick={({ x, y, payload }: any) => {
-                                                const cat = data.categoryBreakdown[catTab].find(c => c.category === payload.value);
+                                                const cat = catData.find(c => c.category === payload.value);
                                                 return (
                                                     <text x={x} y={y} textAnchor="end" dominantBaseline="middle" fill={GD.text2} fontSize={12}>
                                                         {payload.value}
@@ -712,7 +725,7 @@ export default function AnalyticsPage() {
                                             name="Total"
                                             radius={[0, 4, 4, 0]}
                                         >
-                                            {data.categoryBreakdown[catTab].slice(0, 12).map((cat, i) => (
+                                            {catData.slice(0, 12).map((cat, i) => (
                                                 <Cell key={i} fill={cat.color || PIE_COLORS[i % PIE_COLORS.length]} />
                                             ))}
                                         </Bar>
@@ -730,7 +743,7 @@ export default function AnalyticsPage() {
                                     value={netChartType}
                                     onChange={setNetChartType}
                                     options={[
-                                        { value: 'bar', label: '▋ Barres' },
+                                        { value: 'bar', label: 'Barres' },
                                         { value: 'line', label: '— Ligne' },
                                     ]}
                                 />
