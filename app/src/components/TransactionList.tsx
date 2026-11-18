@@ -6,6 +6,7 @@ import { useState } from 'react';
 import EditTransactionModal from './EditTransactionModal';
 import { Inbox, Loader2, Pencil, Repeat, Trash2 } from 'lucide-react';
 import { formatEUR } from '@/lib/format';
+import { CategoryLabel, SortHeader, useTransactionSort } from './sortable';
 
 export interface Transaction {
   id: number;
@@ -36,6 +37,7 @@ export default function TransactionList({
 }: TransactionListProps) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const { sorted, sort, toggle } = useTransactionSort(transactions);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) {
@@ -104,31 +106,30 @@ export default function TransactionList({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-xs font-medium text-fg-subtle">
-              <th scope="col" className="px-5 py-2.5 font-medium">Opération</th>
-              <th scope="col" className="hidden px-3 py-2.5 font-medium md:table-cell">Catégorie</th>
-              <th scope="col" className="hidden px-3 py-2.5 font-medium sm:table-cell">Date</th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium">Montant</th>
+            <tr className="border-b border-line text-xs text-fg-subtle">
+              <SortHeader label="Opération" column="description" sort={sort} onSort={toggle} className="px-5 py-2.5" />
+              <SortHeader label="Catégorie" column="category" sort={sort} onSort={toggle} className="hidden px-3 py-2.5 md:table-cell" />
+              <SortHeader label="Date" column="date" sort={sort} onSort={toggle} className="hidden px-3 py-2.5 sm:table-cell" />
+              <SortHeader label="Montant" column="amount" sort={sort} onSort={toggle} align="right" className="px-3 py-2.5" />
               <th scope="col" className="w-20 px-3 py-2.5"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {transactions.map((transaction) => {
+            {sorted.map((transaction) => {
               const predicted = (transaction as any).is_predicted === true;
               const isIncome = transaction.type === 'income';
               const categoryName = transaction.category_name || transaction.category;
               return (
-                <tr key={transaction.id} className={`group transition-colors hover:bg-surface-2 ${predicted ? 'text-fg-muted' : ''}`}>
+                <tr key={transaction.id} className="group transition-colors hover:bg-surface-2">
                   <td className="px-5 py-3">
                     <div className="flex min-w-0 flex-col">
-                      <span className={`truncate font-medium ${predicted ? 'text-fg-muted' : 'text-fg'}`}>
+                      <span className="truncate font-medium text-fg">
                         {transaction.description || <span className="font-normal italic text-fg-subtle">Sans description</span>}
                       </span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-fg-subtle">
                         <span className="sm:hidden">{format(new Date(transaction.date), 'd MMM', { locale: fr })}</span>
                         {categoryName && <span className="md:hidden">{categoryName}</span>}
-                        {predicted && <span className="badge bg-info/10 !px-1.5 !py-0 text-info">Prévu</span>}
-                        {transaction.is_recurring && !predicted && (
+                        {transaction.is_recurring && (
                           <span className="inline-flex items-center gap-1">
                             <Repeat className="h-3 w-3" aria-hidden />
                             {getRecurrenceLabel(transaction.recurrence_type || '')}
@@ -139,23 +140,12 @@ export default function TransactionList({
                     </div>
                   </td>
                   <td className="hidden px-3 py-3 md:table-cell">
-                    {categoryName ? (
-                      <span className="inline-flex items-center gap-2 text-fg-muted">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: transaction.category_color || 'rgb(var(--fg-subtle))' }}
-                          aria-hidden
-                        />
-                        <span className="truncate">{categoryName}</span>
-                      </span>
-                    ) : (
-                      <span className="text-fg-subtle">—</span>
-                    )}
+                    <CategoryLabel t={transaction} />
                   </td>
                   <td className="hidden whitespace-nowrap px-3 py-3 text-fg-muted sm:table-cell">
                     {format(new Date(transaction.date), 'd MMM yyyy', { locale: fr })}
                   </td>
-                  <td className={`amount whitespace-nowrap px-3 py-3 text-right ${isIncome ? 'text-positive' : 'text-fg'} ${predicted ? 'opacity-70' : ''}`}>
+                  <td className={`amount whitespace-nowrap px-3 py-3 text-right ${isIncome ? 'text-positive' : 'text-fg'}`}>
                     {isIncome ? '+' : '−'}{formatEUR(transaction.amount)}
                   </td>
                   <td className="px-3 py-3">

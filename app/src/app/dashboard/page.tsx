@@ -17,6 +17,7 @@ import BalanceAdjuster from '@/components/BalanceAdjuster';
 import AppHeader from '@/components/layout/AppHeader';
 import { useWallet } from '@/hooks/useWallet';
 import { formatEUR } from '@/lib/format';
+import { CategoryLabel, SortHeader, useTransactionSort } from '@/components/sortable';
 
 interface PredictedTransaction {
   id: string;
@@ -67,6 +68,38 @@ interface CalcDetailProps {
   predictionDate?: string;
 }
 
+/** One column of the calculation detail (income or expenses), sortable. */
+const DetailList = ({ items, sign, empty }: { items: Transaction[]; sign: '+' | '−'; empty: string }) => {
+  const { sorted, sort, toggle } = useTransactionSort(items, { key: 'date', dir: 'asc' });
+  if (items.length === 0) return <p className="py-1 text-fg-subtle">{empty}</p>;
+  return (
+    <table className="w-full table-fixed">
+      <thead>
+        <tr className="text-xs text-fg-subtle">
+          <SortHeader label="Date" column="date" sort={sort} onSort={toggle} className="w-14 pb-1.5" />
+          <SortHeader label="Opération" column="description" sort={sort} onSort={toggle} className="pb-1.5" />
+          <SortHeader label="Catégorie" column="category" sort={sort} onSort={toggle} className="hidden w-[32%] pb-1.5 pl-3 sm:table-cell" />
+          <SortHeader label="Montant" column="amount" sort={sort} onSort={toggle} align="right" className="w-24 pb-1.5 pl-3" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((t, i) => (
+          <tr key={t.id ?? i}>
+            <td className="amount py-1 align-baseline text-fg-subtle">{format(new Date(t.date), 'dd/MM', { locale: fr })}</td>
+            <td className="truncate py-1 align-baseline text-fg-muted">
+              {t.description || <span className="italic text-fg-subtle">Sans description</span>}
+            </td>
+            <td className="hidden py-1 pl-3 align-baseline sm:table-cell"><CategoryLabel t={t} className="max-w-full" /></td>
+            <td className={`amount whitespace-nowrap py-1 pl-3 text-right align-baseline ${sign === '+' ? 'text-positive' : 'text-negative'}`}>
+              {sign}{formatEUR(t.amount)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
+
 function CalcDetail({
   title,
   transactions,
@@ -84,19 +117,6 @@ function CalcDetail({
 
   const incomeTransactions = transactions.filter(t => t.type === 'income');
   const outcomeTransactions = transactions.filter(t => t.type === 'outcome');
-
-  const Line = ({ t, sign }: { t: Transaction; sign: '+' | '−' }) => (
-    <div className="flex items-baseline justify-between gap-4 py-1">
-      <span className="min-w-0 truncate text-fg-muted">
-        <span className="amount mr-2 text-fg-subtle">{format(new Date(t.date), 'dd/MM', { locale: fr })}</span>
-        {t.description || <span className="italic text-fg-subtle">Sans description</span>}
-        {(t as any).is_predicted && <span className="badge ml-2 bg-info/10 !py-0 text-info">prévu</span>}
-      </span>
-      <span className={`amount shrink-0 ${sign === '+' ? 'text-positive' : 'text-negative'}`}>
-        {sign}{formatEUR(t.amount)}
-      </span>
-    </div>
-  );
 
   const Total = ({ label, value, className = '' }: { label: string; value: string; className?: string }) => (
     <div className={`mt-1 flex justify-between border-t border-line pt-2 font-semibold ${className}`}>
@@ -120,15 +140,13 @@ function CalcDetail({
         <div className="grid gap-6 border-t border-line px-5 py-4 md:grid-cols-2">
           <div>
             <p className="eyebrow mb-2">Revenus</p>
-            {incomeTransactions.length === 0 && <p className="py-1 text-fg-subtle">Aucun revenu</p>}
-            {incomeTransactions.map((t, i) => <Line key={t.id ?? i} t={t} sign="+" />)}
+            <DetailList items={incomeTransactions} sign="+" empty="Aucun revenu" />
             <Total label="Total revenus" value={`+${formatEUR(totalIncome)}`} className="text-positive" />
           </div>
 
           <div>
             <p className="eyebrow mb-2">Dépenses</p>
-            {outcomeTransactions.length === 0 && <p className="py-1 text-fg-subtle">Aucune dépense</p>}
-            {outcomeTransactions.map((t, i) => <Line key={t.id ?? i} t={t} sign="−" />)}
+            <DetailList items={outcomeTransactions} sign="−" empty="Aucune dépense" />
             <Total label="Total dépenses" value={`−${formatEUR(totalOutcome)}`} className="text-negative" />
           </div>
 
