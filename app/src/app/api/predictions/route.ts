@@ -11,6 +11,7 @@ interface RecurringTransaction {
   amount: string;
   description: string;
   category: string | null;
+  category_id?: number | null;
   date: string;
   is_recurring: boolean;
   recurrence_type: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'yearly';
@@ -60,6 +61,7 @@ function generatePredictions(transaction: RecurringTransaction, endDate: Date): 
       amount: parseFloat(transaction.amount),
       description: transaction.description,
       category: transaction.category,
+      category_id: transaction.category_id ?? null,
       date: format(currentDate, 'yyyy-MM-dd'),
       is_predicted: true,
       original_transaction_id: transaction.id,

@@ -253,7 +253,8 @@ export default function Home() {
     if (!selectedWalletId) return;
     let url = `/api/stats?walletId=${selectedWalletId}`;
     if (viewMode === 'period') {
-      url += `&startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=false`;
+      // Recurring occurrences falling in the period count in its income / expenses
+      url += `&startDate=${dateRange.start}&endDate=${dateRange.end}&includePredictions=true`;
     } else if (viewMode === 'prediction') {
       url += `&endDate=${predictionDate}&includePredictions=true`;
     } else {
@@ -377,7 +378,7 @@ export default function Home() {
       ? [
         ...transactions,
         ...predictions.map((p, index) => {
-          const cat = categories.find(c => c.name === p.category);
+          const cat = categories.find(c => c.id === (p as any).category_id) ?? categories.find(c => c.name === p.category);
           return {
             id: -(index + 1),
             type: p.type,
@@ -420,7 +421,8 @@ export default function Home() {
       })()
       : displayedTransactions;
 
-  // Solde initial déduit depuis les valeurs cumulées
+
+  // Solde initial déduit depuis les valeurs cumulées (détail du mode prévision)
   const derivedInitialBalance = stats
     ? stats.cumulativeBalance - stats.cumulativeIncome + stats.cumulativeOutcome
     : 0;
@@ -537,9 +539,32 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-3">
             {viewMode === 'period' && (
               <div className="flex items-center gap-2">
-                <input type="date" aria-label="Date de début" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className="field h-9 w-auto !py-1" />
+                {/* The range can't be inverted: moving one bound past the other drags it along */}
+                <input
+                  type="date"
+                  aria-label="Date de début"
+                  value={dateRange.start}
+                  max={dateRange.end}
+                  onChange={(e) => {
+                    const start = e.target.value;
+                    if (!start) return;
+                    setDateRange((r) => ({ start, end: start > r.end ? start : r.end }));
+                  }}
+                  className="field h-9 w-auto !py-1"
+                />
                 <span className="text-sm text-fg-subtle">→</span>
-                <input type="date" aria-label="Date de fin" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className="field h-9 w-auto !py-1" />
+                <input
+                  type="date"
+                  aria-label="Date de fin"
+                  value={dateRange.end}
+                  min={dateRange.start}
+                  onChange={(e) => {
+                    const end = e.target.value;
+                    if (!end) return;
+                    setDateRange((r) => ({ start: end < r.start ? end : r.start, end }));
+                  }}
+                  className="field h-9 w-auto !py-1"
+                />
                 <StepButtons onStep={adjustDateRange} />
               </div>
             )}
@@ -647,11 +672,6 @@ export default function Home() {
                 cumulativeBalance={stats.cumulativeBalance}
                 predictionDate={predictionDate}
               />
-            )}
-            {stats && viewMode === 'period' && (
-              <p className="mb-8 text-xs text-fg-subtle">
-                Solde initial {formatEUR(derivedInitialBalance)} {stats.balance >= 0 ? '+' : '−'} flux de la période {formatEUR(Math.abs(stats.balance))}
-              </p>
             )}
 
             {/* Transactions + form */}

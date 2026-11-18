@@ -199,7 +199,9 @@ export async function GET(request: NextRequest) {
   FROM transactions
   WHERE wallet_id = $1 AND date <= $2
 `;
-    const allTransactionsResult = await pool.query(allTransactionsQuery, [walletIdNum, today]);
+    // For a period ending in the past, the balance is the one on its last day
+    const realCutoff = effectiveEndDate < today ? effectiveEndDate : today;
+    const allTransactionsResult = await pool.query(allTransactionsQuery, [walletIdNum, realCutoff]);
     const allTotals = allTransactionsResult.rows[0];
 
     cumulativeIncome = parseFloat(allTotals.total_income);
