@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
-import { BarChart3, LayoutDashboard } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Repeat } from 'lucide-react';
 import Logo from './Logo';
 import UserMenu from '../UserMenu';
 
 const NAV = [
-  { href: '/dashboard', label: 'Tableau de bord', Icon: LayoutDashboard },
-  { href: '/analytics', label: 'Analyses', Icon: BarChart3 },
+  { href: '/dashboard', label: 'Tableau de bord', short: 'Accueil', Icon: LayoutDashboard },
+  { href: '/recurrences', label: 'Récurrences', short: 'Récurrences', Icon: Repeat },
+  { href: '/analytics', label: 'Analyses', short: 'Analyses', Icon: BarChart3 },
 ];
 
 /** Application top bar (dashboard, analytics). `actions` = wallet selector. */
@@ -48,19 +49,19 @@ export default function AppHeader({ actions }: { actions?: ReactNode }) {
 
       {/* Mobile navigation */}
       <nav className="flex border-t border-line md:hidden" aria-label="Navigation principale">
-        {NAV.map(({ href, label, Icon }) => {
+        {NAV.map(({ href, short, Icon }) => {
           const active = pathname?.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-1 items-center justify-center gap-2 py-2.5 text-sm font-medium ${
+              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap py-2.5 text-sm font-medium ${
                 active ? 'border-b-2 border-accent text-fg' : 'text-fg-muted'
               }`}
             >
-              <Icon className="h-4 w-4" aria-hidden />
-              {label}
+              <Icon className="h-4 w-4 shrink-0" aria-hidden />
+              {short}
             </Link>
           );
         })}

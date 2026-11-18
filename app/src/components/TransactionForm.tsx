@@ -9,16 +9,18 @@ import CategoryManager from './CategoryManager';
 interface TransactionFormProps {
   onTransactionAdded: () => void;
   selectedWalletId: number;
+  /** Start with "Transaction récurrente" ticked (used on the Récurrences page). */
+  defaultRecurring?: boolean;
 }
 
-export default function TransactionForm({ onTransactionAdded, selectedWalletId }: TransactionFormProps) {
+export default function TransactionForm({ onTransactionAdded, selectedWalletId, defaultRecurring = false }: TransactionFormProps) {
   const [formData, setFormData] = useState({
     type: 'outcome' as 'income' | 'outcome',
     amount: '',
     description: '',
     category_id: null as number | null,
     date: format(new Date(), 'yyyy-MM-dd'),
-    is_recurring: false,
+    is_recurring: defaultRecurring,
     recurrence_type: 'monthly' as 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'bimonthly' | 'quarterly' | 'yearly',
     recurrence_end_date: '',
   });
@@ -65,7 +67,7 @@ export default function TransactionForm({ onTransactionAdded, selectedWalletId }
         description: '',
         category_id: null,
         date: format(new Date(), 'yyyy-MM-dd'),
-        is_recurring: false,
+        is_recurring: defaultRecurring,
         recurrence_type: 'monthly',
         recurrence_end_date: '',
       });

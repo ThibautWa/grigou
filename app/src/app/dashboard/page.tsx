@@ -15,6 +15,7 @@ import WalletManager from '@/components/WalletManager';
 import InvitationsList from '@/components/InvitationsList';
 import BalanceAdjuster from '@/components/BalanceAdjuster';
 import AppHeader from '@/components/layout/AppHeader';
+import UpcomingRecurring from '@/components/recurring/UpcomingRecurring';
 import { useWallet } from '@/hooks/useWallet';
 import { formatEUR } from '@/lib/format';
 import { CategoryLabel, SortHeader, useTransactionSort } from '@/components/sortable';
@@ -669,14 +670,17 @@ export default function Home() {
                 </section>
 
                 {viewMode === 'current' && (
-                  <section className="card lg:sticky lg:top-20" aria-labelledby="new-tx-title">
-                    <div className="card-header">
-                      <h2 id="new-tx-title" className="card-title">Nouvelle transaction</h2>
-                    </div>
-                    <div className="p-5">
-                      <TransactionForm onTransactionAdded={handleTransactionAdded} selectedWalletId={selectedWalletId} />
-                    </div>
-                  </section>
+                  <div className="min-w-0 space-y-6">
+                    <section className="card" aria-labelledby="new-tx-title">
+                      <div className="card-header">
+                        <h2 id="new-tx-title" className="card-title">Nouvelle transaction</h2>
+                      </div>
+                      <div className="p-5">
+                        <TransactionForm onTransactionAdded={handleTransactionAdded} selectedWalletId={selectedWalletId} />
+                      </div>
+                    </section>
+                    <UpcomingRecurring walletId={selectedWalletId} days={10} refreshKey={transactions.length} />
+                  </div>
                 )}
               </div>
             )}
