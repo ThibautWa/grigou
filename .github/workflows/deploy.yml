@@ -78,91 +78,70 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} bash << 'ENDSSH'
             set -e
-            
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "🔵 Starting Grigou Deployment"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            
-            # Variables
             APP_DIR="${{ secrets.APP_DIR }}"
-            BACKUP_DIR="$APP_DIR/backups"
-            
+            COMPOSE="docker compose -f docker-compose.prod.yml"
+            DASHBOARDS_DIR=/opt/monitoring/grafana/provisioning/dashboards/grigou
             cd "$APP_DIR"
-            
-            # Charger les variables d'environnement proprement
-            echo "📋 Loading environment variables..."
-            source .env.production
-            
-            echo "   Database: ${POSTGRES_DB}"
-            echo "   User: ${POSTGRES_USER}"
-            
-            # Create backup
-            echo "📦 Creating database backup..."
-            mkdir -p "$BACKUP_DIR"
-            BACKUP_FILE="$BACKUP_DIR/db-backup-$(date +%Y%m%d-%H%M%S).sql"
-            
-            # Backup avec les variables chargées
-            if docker exec grigou_db pg_dump -U "${POSTGRES_USER}" "${POSTGRES_DB}" > "$BACKUP_FILE" 2>&1; then
-              echo "✅ Backup created: $(basename "$BACKUP_FILE") ($(du -h "$BACKUP_FILE" | cut -f1))"
-            else
-              echo "⚠️ Backup failed (non-critical)"
-            fi
-            
-            # Keep only last 5 backups
-            ls -t "$BACKUP_DIR"/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm || true
-            
-            # Ensure Git is using HTTPS
-            echo "🔧 Configuring Git..."
-            CURRENT_URL=$(git remote get-url origin)
-            if [[ "$CURRENT_URL" == git@github.com:* ]]; then
-              echo "   Converting SSH URL to HTTPS..."
-              NEW_URL=$(echo "$CURRENT_URL" | sed 's|git@github.com:|https://github.com/|' | sed 's|\.git$||')
-              git remote set-url origin "${NEW_URL}.git"
-              echo "   New URL: $(git remote get-url origin)"
-            fi
-            
-            # Pull latest changes
-            echo "📥 Pulling latest changes from GitHub..."
+
+            # ---- Code ----------------------------------------------------------
+            OLD=$(git rev-parse HEAD)
             git fetch origin
             git reset --hard origin/main
-            CURRENT_COMMIT=$(git rev-parse --short HEAD)
-            echo "✅ Code updated to commit: $CURRENT_COMMIT"
-            
-            # Stop containers - UTILISER docker compose (V2)
-            echo "🛑 Stopping containers..."
-            docker compose -f docker-compose.prod.yml down || true
-            
-            # Build new images - UTILISER docker compose (V2)
-            echo "🔨 Building new Docker images..."
-            docker compose -f docker-compose.prod.yml build --no-cache
-            
-            # Start containers - UTILISER docker compose (V2)
-            echo "🚀 Starting containers..."
-            docker compose -f docker-compose.prod.yml up -d
-            
-            # Wait for containers to be healthy
-            echo "⏳ Waiting for containers to start (30s)..."
-            sleep 30
-            
-            # Check container status - UTILISER docker compose (V2)
-            echo "📊 Container status:"
-            docker compose -f docker-compose.prod.yml ps
-            
-            # Check if app is responding
-            echo "🔍 Checking application health..."
-            if docker exec grigou_app curl -f http://localhost:3000/api/health 2>/dev/null; then
-              echo "✅ Application is responding"
-            else
-              echo "⚠️ Application health check failed (might still be starting)"
+            NEW=$(git rev-parse HEAD)
+            echo "Code: ${OLD:0:7} -> ${NEW:0:7}"
+            CHANGED=$(git diff --name-only "$OLD" "$NEW" || true)
+            echo "$CHANGED" | sed 's/^/  /'
+
+            # Only rebuild the application when something it is built from changed
+            # (monitoring dashboards, docs and CI files don't need a new image).
+            APP_CHANGED=$(echo "$CHANGED" | grep -vE '^(monitoring/|\.github/|.*\.md$)' | grep -vE '^docker/(nginx|grigou)\.conf$' || true)
+            NGINX_CHANGED=$(echo "$CHANGED" | grep -E '^docker/(nginx|grigou)\.conf$' || true)
+            DASH_CHANGED=$(echo "$CHANGED" | grep -E '^monitoring/dashboards/' || true)
+
+            # ---- Monitoring dashboards (Grafana reloads them by itself) ----------
+            if [ -n "$DASH_CHANGED" ] && [ -d "$DASHBOARDS_DIR" ]; then
+              cp monitoring/dashboards/*.json "$DASHBOARDS_DIR"/
+              echo "Grafana dashboards updated"
             fi
-            
-            # Cleanup old images
-            echo "🧹 Cleaning up old Docker images..."
-            docker image prune -af || true
-            
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ Deployment completed successfully!"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # ---- Application: build while the site keeps running, then swap ---
+            if [ -n "$APP_CHANGED" ] || [ "$OLD" = "$NEW" ]; then
+              set -a; source .env.production; set +a
+              mkdir -p backups
+              BACKUP_FILE="backups/db-backup-$(date +%Y%m%d-%H%M%S).sql"
+              if docker exec grigou_db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "$BACKUP_FILE"; then
+                echo "Backup: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+              else
+                echo "Backup failed (non-blocking)"; rm -f "$BACKUP_FILE"
+              fi
+              ls -t backups/db-backup-*.sql 2>/dev/null | tail -n +6 | xargs -r rm
+
+              echo "Building the new image (site still online)..."
+              $COMPOSE build app
+              # Recreates only the containers whose image or config changed (here: the app);
+              # the database and nginx keep running.
+              $COMPOSE up -d
+              for i in $(seq 1 30); do
+                STATUS=$(docker inspect -f '{{.State.Health.Status}}' grigou_app 2>/dev/null || echo starting)
+                [ "$STATUS" = healthy ] && break
+                sleep 3
+              done
+              echo "App: $STATUS"
+              [ "$STATUS" = healthy ] || { docker logs --tail 50 grigou_app; exit 1; }
+              docker image prune -f > /dev/null || true
+            else
+              echo "No application change: no rebuild, no restart"
+            fi
+
+            # ---- nginx: test the new config, then recreate nginx (a few seconds) ---
+            if [ -n "$NGINX_CHANGED" ]; then
+              # Same mounts and networks as the real nginx container
+              $COMPOSE run --rm --no-deps nginx nginx -t \
+                && $COMPOSE up -d --force-recreate --no-deps nginx \
+                || { echo "Invalid nginx config: nginx NOT restarted"; exit 1; }
+            fi
+
+            $COMPOSE ps
           ENDSSH
 
       - name: 🧪 Health Check
