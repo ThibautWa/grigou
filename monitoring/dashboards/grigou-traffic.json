@@ -47,15 +47,15 @@
     },
     {
       "type": "stat",
-      "title": "Requêtes",
-      "id": 2,
+      "title": "Visites",
+      "id": 23,
       "gridPos": {
         "x": 0,
         "y": 1,
         "w": 4,
         "h": 4
       },
-      "description": "Toutes les requêtes HTTP vers grigou.fr (pages, API, fichiers statiques).",
+      "description": "Estimation du nombre de visites : un visiteur (IP + navigateur, hors robots) actif sur une tranche de 30 minutes compte pour une visite.",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
@@ -67,14 +67,76 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host | host=~\"(www\\\\.)?grigou\\\\.fr\" [$__range]))",
+          "expr": "count(sum by (remote_addr, user_agent) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [30m])))",
+          "queryType": "range",
+          "step": "30m"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto"
+      },
+      "interval": "30m"
+    },
+    {
+      "type": "stat",
+      "title": "Visiteurs uniques (IP)",
+      "id": 4,
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 3,
+        "h": 4
+      },
+      "description": "Adresses IP différentes ayant affiché au moins une page (hors robots).",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "expr": "count(sum by (remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
           "legendFormat": "",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "none",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -111,12 +173,12 @@
       "title": "Pages vues",
       "id": 3,
       "gridPos": {
-        "x": 4,
+        "x": 7,
         "y": 1,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
-      "description": "Requêtes vers des pages (hors API, fichiers statiques et erreurs).",
+      "description": "Pages de l'application affichées à des humains (hors robots, redirections et sondes).",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
@@ -128,14 +190,14 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | status < 400 [$__range]))",
+          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "none",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -169,15 +231,15 @@
     },
     {
       "type": "stat",
-      "title": "Visiteurs uniques (IP)",
-      "id": 4,
+      "title": "Requêtes",
+      "id": 2,
       "gridPos": {
-        "x": 8,
+        "x": 10,
         "y": 1,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
-      "description": "Adresses IP distinctes, robots exclus.",
+      "description": "Toutes les requêtes HTTP vers grigou.fr (pages, API, fichiers statiques).",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
@@ -189,14 +251,14 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "count(sum by (remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, remote_addr, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
+          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host | host=~\"(www\\\\.)?grigou\\\\.fr\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "none",
           "decimals": 0,
           "thresholds": {
             "mode": "absolute",
@@ -233,7 +295,7 @@
       "title": "Erreurs 5xx",
       "id": 5,
       "gridPos": {
-        "x": 12,
+        "x": 13,
         "y": 1,
         "w": 4,
         "h": 4
@@ -302,7 +364,7 @@
       "title": "Temps de réponse p95",
       "id": 6,
       "gridPos": {
-        "x": 16,
+        "x": 17,
         "y": 1,
         "w": 4,
         "h": 4
@@ -371,12 +433,12 @@
       "title": "Part des robots",
       "id": 7,
       "gridPos": {
-        "x": 20,
+        "x": 21,
         "y": 1,
-        "w": 4,
+        "w": 3,
         "h": 4
       },
-      "description": "Requêtes venant de robots, crawlers et scanners.",
+      "description": "Robot : navigateur non identifié ou robot / scanner connu (moteurs de recherche, outils, scanners de failles).",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
@@ -388,7 +450,7 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "100 * sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent =~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])) / sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host | host=~\"(www\\\\.)?grigou\\\\.fr\" [$__range]))",
+          "expr": "100 * sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent =~ \"(?i)(-?|.*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*)\" [$__range])) / sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host | host=~\"(www\\\\.)?grigou\\\\.fr\" [$__range]))",
           "legendFormat": "",
           "queryType": "instant"
         }
@@ -581,7 +643,7 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "count(sum by (remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, remote_addr, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__interval])))",
+          "expr": "count(sum by (remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__interval])))",
           "legendFormat": "Visiteurs uniques",
           "queryType": "range"
         },
@@ -591,7 +653,7 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | status < 400 [$__interval]))",
+          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__interval]))",
           "legendFormat": "Pages vues",
           "queryType": "range"
         }
@@ -717,7 +779,7 @@
         "w": 12,
         "h": 8
       },
-      "description": "",
+      "description": "Robot : navigateur non identifié ou robot / scanner connu (moteurs de recherche, outils, scanners de failles).",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
@@ -729,7 +791,7 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__interval]))",
+          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__interval]))",
           "legendFormat": "Humains",
           "queryType": "range"
         },
@@ -739,7 +801,7 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent =~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__interval]))",
+          "expr": "sum(count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent =~ \"(?i)(-?|.*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*)\" [$__interval]))",
           "legendFormat": "Robots / scanners",
           "queryType": "range"
         }
@@ -750,7 +812,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 10,
+            "fillOpacity": 45,
             "showPoints": "never",
             "stacking": {
               "mode": "normal",
@@ -821,19 +883,19 @@
       "panels": []
     },
     {
-      "type": "bargauge",
-      "title": "Pages les plus visitées",
       "id": 14,
-      "gridPos": {
-        "x": 0,
-        "y": 23,
-        "w": 8,
-        "h": 10
-      },
-      "description": "",
+      "type": "table",
+      "title": "Pages visitées",
+      "description": "Pages de l'application vues par des humains (hors robots, fichiers techniques et sondes de sécurité). Cliquez sur un en-tête pour trier.",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 12,
+        "h": 12
       },
       "targets": [
         {
@@ -842,89 +904,160 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status < 400 | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
-          "legendFormat": "{{uri}}",
+          "expr": "sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range]))",
           "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "expr": "count by (uri) (sum by (uri, remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
+          "queryType": "instant"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "expr": "quantile_over_time(0.95, {container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, request_time | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" | unwrap request_time [$__range]) by (uri)",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "uri": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3
+            },
+            "renameByName": {
+              "uri": "Page",
+              "Value #A": "Vues",
+              "Value #B": "Visiteurs",
+              "Value #C": "Temps p95"
+            }
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
           "color": {
-            "mode": "continuous-BlYlRd"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
-          }
+          },
+          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "text",
-        "namePlacement": "left",
-        "sizing": "manual",
-        "reduceOptions": {
-          "values": true,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Last/",
-          "limit": 15
-        },
-        "minVizHeight": 18,
-        "maxVizHeight": 26,
-        "text": {
-          "titleSize": 13,
-          "valueSize": 13
-        }
-      },
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "lastNotNull"
-            ],
-            "mode": "seriesToRows",
-            "includeTimeField": false
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Temps p95"
+            },
+            "properties": [
               {
-                "field": "Last *",
-                "desc": true
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Vues"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Vues"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
               }
             ]
           }
-        }
-      ]
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Vues",
+            "desc": true
+          }
+        ]
+      }
     },
     {
-      "type": "bargauge",
-      "title": "API les plus appelées",
       "id": 15,
-      "gridPos": {
-        "x": 8,
-        "y": 23,
-        "w": 8,
-        "h": 10
-      },
-      "description": "",
+      "type": "table",
+      "title": "Visiteurs",
+      "description": "Une ligne par visiteur (adresse IP + navigateur), hors robots : pages vues et nombre total de requêtes.",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 12,
+        "h": 12
       },
       "targets": [
         {
@@ -933,180 +1066,165 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri =~ \"/api/.*\" [$__range])))",
-          "legendFormat": "{{uri}}",
+          "expr": "sum by (remote_addr, browser, os) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri !~ \"/_next/.*|/favicon.*|/api/.*|.*\\\\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|txt|xml)$\" | uri !~ \".*\\\\.php.*|/wp-.*|/\\\\..*|.*/cgi-bin/.*\" | status >= 200 | status < 300 | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" | label_format browser=`{{ if contains \"Edg/\" .user_agent }}Edge{{ else if contains \"OPR/\" .user_agent }}Opera{{ else if contains \"Firefox/\" .user_agent }}Firefox{{ else if contains \"Chrome/\" .user_agent }}Chrome{{ else if contains \"Safari/\" .user_agent }}Safari{{ else }}Autre{{ end }}` | label_format os=`{{ if contains \"Android\" .user_agent }}Android{{ else if contains \"iPhone\" .user_agent }}iOS{{ else if contains \"iPad\" .user_agent }}iPadOS{{ else if contains \"Windows\" .user_agent }}Windows{{ else if contains \"Mac OS X\" .user_agent }}macOS{{ else if contains \"Linux\" .user_agent }}Linux{{ else }}?{{ end }}` [$__range]))",
           "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "expr": "sum by (remote_addr, browser, os) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, remote_addr, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" | label_format browser=`{{ if contains \"Edg/\" .user_agent }}Edge{{ else if contains \"OPR/\" .user_agent }}Opera{{ else if contains \"Firefox/\" .user_agent }}Firefox{{ else if contains \"Chrome/\" .user_agent }}Chrome{{ else if contains \"Safari/\" .user_agent }}Safari{{ else }}Autre{{ end }}` | label_format os=`{{ if contains \"Android\" .user_agent }}Android{{ else if contains \"iPhone\" .user_agent }}iOS{{ else if contains \"iPad\" .user_agent }}iPadOS{{ else if contains \"Windows\" .user_agent }}Windows{{ else if contains \"Mac OS X\" .user_agent }}macOS{{ else if contains \"Linux\" .user_agent }}Linux{{ else }}?{{ end }}` [$__range]))",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "remote_addr": 0,
+              "browser": 1,
+              "os": 2,
+              "Value #A": 3,
+              "Value #B": 4
+            },
+            "renameByName": {
+              "remote_addr": "IP",
+              "browser": "Navigateur",
+              "os": "Système",
+              "Value #A": "Pages vues",
+              "Value #B": "Requêtes"
+            }
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
           "color": {
-            "mode": "continuous-BlYlRd"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
-          }
+          },
+          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "text",
-        "namePlacement": "left",
-        "sizing": "manual",
-        "reduceOptions": {
-          "values": true,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Last/",
-          "limit": 15
-        },
-        "minVizHeight": 18,
-        "maxVizHeight": 26,
-        "text": {
-          "titleSize": 13,
-          "valueSize": 13
-        }
-      },
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "lastNotNull"
-            ],
-            "mode": "seriesToRows",
-            "includeTimeField": false
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Navigateur"
+            },
+            "properties": [
               {
-                "field": "Last *",
-                "desc": true
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Système"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requêtes"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pages vues"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
               }
             ]
           }
-        }
-      ]
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Pages vues",
+            "desc": true
+          }
+        ]
+      }
     },
     {
-      "type": "bargauge",
-      "title": "Sources de trafic (sites référents)",
       "id": 16,
-      "gridPos": {
-        "x": 16,
-        "y": 23,
-        "w": 8,
-        "h": 10
-      },
-      "description": "",
+      "type": "table",
+      "title": "Sources de trafic",
+      "description": "Sites d'où viennent les visiteurs (en-tête Referer), hors navigation interne.",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "${loki}"
-          },
-          "expr": "topk(15, sum by (referer) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, referer | host=~\"(www\\\\.)?grigou\\\\.fr\" | referer != \"\" | referer !~ \".*grigou\\\\.fr.*\" [$__range])))",
-          "legendFormat": "{{referer}}",
-          "queryType": "instant"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "continuous-BlYlRd"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "text",
-        "namePlacement": "left",
-        "sizing": "manual",
-        "reduceOptions": {
-          "values": true,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Last/",
-          "limit": 15
-        },
-        "minVizHeight": 18,
-        "maxVizHeight": 26,
-        "text": {
-          "titleSize": 13,
-          "valueSize": 13
-        }
-      },
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "lastNotNull"
-            ],
-            "mode": "seriesToRows",
-            "includeTimeField": false
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
-              {
-                "field": "Last *",
-                "desc": true
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "type": "bargauge",
-      "title": "Erreurs 4xx (pages introuvables, scanners)",
-      "id": 17,
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 35,
         "w": 8,
         "h": 10
-      },
-      "description": "Beaucoup de /wp-admin, /.env, … = scans automatiques, sans danger.",
-      "datasource": {
-        "type": "loki",
-        "uid": "${loki}"
       },
       "targets": [
         {
@@ -1115,89 +1233,149 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status | label_format uri=`{{ if .uri }}{{ .uri }}{{ else }}(requête invalide){{ end }}` | host=~\"(www\\\\.)?grigou\\\\.fr\" | status >= 400 | status < 500 [$__range])))",
-          "legendFormat": "{{uri}}",
+          "expr": "sum by (referer) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, referer, user_agent | host=~\"(www\\\\.)?grigou\\\\.fr\" | referer != \"\" | referer !~ \".*grigou\\\\.fr.*\" | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range]))",
           "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "expr": "count by (referer) (sum by (referer, remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, referer, user_agent, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" | referer != \"\" | referer !~ \".*grigou\\\\.fr.*\" | user_agent != \"\" | user_agent != \"-\" | user_agent !~ \"(?i).*(bot|crawl|spider|slurp|curl|wget|python|go-http|httpclient|scan|zgrab|masscan|nmap|headless|java/|okhttp|libwww).*\" [$__range])))",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "referer": 0,
+              "Value #A": 1,
+              "Value #B": 2
+            },
+            "renameByName": {
+              "referer": "Site référent",
+              "Value #A": "Arrivées",
+              "Value #B": "Visiteurs"
+            }
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
           "color": {
-            "mode": "continuous-BlYlRd"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
-          }
+          },
+          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "text",
-        "namePlacement": "left",
-        "sizing": "manual",
-        "reduceOptions": {
-          "values": true,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Last/",
-          "limit": 15
-        },
-        "minVizHeight": 18,
-        "maxVizHeight": 26,
-        "text": {
-          "titleSize": 13,
-          "valueSize": 13
-        }
-      },
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "lastNotNull"
-            ],
-            "mode": "seriesToRows",
-            "includeTimeField": false
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Arrivées"
+            },
+            "properties": [
               {
-                "field": "Last *",
-                "desc": true
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Visiteurs"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Arrivées"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
               }
             ]
           }
-        }
-      ]
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Arrivées",
+            "desc": true
+          }
+        ]
+      }
     },
     {
-      "type": "bargauge",
-      "title": "IP les plus actives",
-      "id": 18,
+      "id": 17,
+      "type": "table",
+      "title": "API les plus appelées",
+      "description": "Appels à l'API de l'application (les identifiants numériques sont regroupés en :id).",
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
       "gridPos": {
         "x": 8,
-        "y": 33,
+        "y": 35,
         "w": 8,
         "h": 10
-      },
-      "description": "",
-      "datasource": {
-        "type": "loki",
-        "uid": "${loki}"
       },
       "targets": [
         {
@@ -1206,89 +1384,137 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, sum by (remote_addr) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, remote_addr | host=~\"(www\\\\.)?grigou\\\\.fr\" [$__range])))",
-          "legendFormat": "{{remote_addr}}",
+          "expr": "sum by (uri) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri =~ \"/api/.*\" | label_format uri=`{{ regexReplaceAll \"/[0-9]+\" .uri \"/:id\" }}` [$__range]))",
           "queryType": "instant"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "expr": "quantile_over_time(0.95, {container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, request_time | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ regexReplaceAll \"\\\\?.*\" .uri \"\" }}` | uri =~ \"/api/.*\" | label_format uri=`{{ regexReplaceAll \"/[0-9]+\" .uri \"/:id\" }}` | unwrap request_time [$__range]) by (uri)",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "uri": 0,
+              "Value #A": 1,
+              "Value #B": 2
+            },
+            "renameByName": {
+              "uri": "Route",
+              "Value #A": "Appels",
+              "Value #B": "Temps p95"
+            }
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
           "color": {
-            "mode": "continuous-BlYlRd"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
-          }
+          },
+          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "text",
-        "namePlacement": "left",
-        "sizing": "manual",
-        "reduceOptions": {
-          "values": true,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Last/",
-          "limit": 15
-        },
-        "minVizHeight": 18,
-        "maxVizHeight": 26,
-        "text": {
-          "titleSize": 13,
-          "valueSize": 13
-        }
-      },
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "lastNotNull"
-            ],
-            "mode": "seriesToRows",
-            "includeTimeField": false
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Temps p95"
+            },
+            "properties": [
               {
-                "field": "Last *",
-                "desc": true
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Appels"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
               }
             ]
           }
-        }
-      ]
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Appels",
+            "desc": true
+          }
+        ]
+      }
     },
     {
-      "type": "bargauge",
-      "title": "Pages les plus lentes (p95)",
-      "id": 19,
-      "gridPos": {
-        "x": 16,
-        "y": 33,
-        "w": 8,
-        "h": 10
-      },
-      "description": "",
+      "id": 18,
+      "type": "table",
+      "title": "Erreurs 4xx",
+      "description": "Pages introuvables ou refusées : liens cassés, mais surtout robots qui cherchent des failles (.php, wp-admin, .env…).",
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 35,
+        "w": 8,
+        "h": 10
       },
       "targets": [
         {
@@ -1297,74 +1523,113 @@
             "type": "loki",
             "uid": "${loki}"
           },
-          "expr": "topk(15, quantile_over_time(0.95, {container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, request_time | label_format uri=`{{ if .uri }}{{ .uri }}{{ else }}(requête invalide){{ end }}` | host=~\"(www\\\\.)?grigou\\\\.fr\" | uri !~ \"/_next/.*\" | unwrap request_time [$__range]) by (uri))",
-          "legendFormat": "{{uri}}",
+          "expr": "sum by (uri, status) (count_over_time({container=\"grigou_nginx\", stream=\"stdout\"} |= \"\\\"host\\\":\" | json host, uri, status | host=~\"(www\\\\.)?grigou\\\\.fr\" | label_format uri=`{{ if .uri }}{{ .uri }}{{ else }}(requête invalide){{ end }}` | status >= 400 | status < 500 [$__range]))",
           "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "uri": 0,
+              "status": 1,
+              "Value #A": 2
+            },
+            "renameByName": {
+              "uri": "Adresse",
+              "status": "Code",
+              "Value #A": "Requêtes"
+            }
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
           "color": {
-            "mode": "continuous-BlYlRd"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
               }
             ]
-          }
+          },
+          "noValue": "0"
         },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "basic",
-        "showUnfilled": true,
-        "valueMode": "text",
-        "namePlacement": "left",
-        "sizing": "manual",
-        "reduceOptions": {
-          "values": true,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/^Last/",
-          "limit": 15
-        },
-        "minVizHeight": 18,
-        "maxVizHeight": 26,
-        "text": {
-          "titleSize": 13,
-          "valueSize": 13
-        }
-      },
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "lastNotNull"
-            ],
-            "mode": "seriesToRows",
-            "includeTimeField": false
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Code"
+            },
+            "properties": [
               {
-                "field": "Last *",
-                "desc": true
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requêtes"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
               }
             ]
           }
-        }
-      ]
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": [
+          {
+            "displayName": "Requêtes",
+            "desc": true
+          }
+        ]
+      }
     },
     {
       "type": "row",
@@ -1372,7 +1637,7 @@
       "id": 20,
       "gridPos": {
         "x": 0,
-        "y": 43,
+        "y": 45,
         "w": 24,
         "h": 1
       },
@@ -1385,7 +1650,7 @@
       "id": 21,
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 46,
         "w": 12,
         "h": 10
       },
@@ -1418,7 +1683,7 @@
       "id": 22,
       "gridPos": {
         "x": 12,
-        "y": 44,
+        "y": 46,
         "w": 12,
         "h": 10
       },
