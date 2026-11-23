@@ -223,7 +223,7 @@ export default function EditTransactionModal({
                                 />
                             </div>
 
-                            {/* Date/}
+                            {/* Date */}
                             <div>
                                 <label className="field-label">
                                     Date
