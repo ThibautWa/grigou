@@ -14,8 +14,8 @@ export const config = {
      * - _next/image (optimisation d'images)
      * - favicon.ico (favicon)
      * - images, fichiers publics
-     * - /api/health (healthcheck)
+     * - robots.txt, sitemap.xml, manifest (must stay public for search engines)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

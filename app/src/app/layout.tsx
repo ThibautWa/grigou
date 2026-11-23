@@ -17,12 +17,13 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://grigou.fr'),
   title: {
-    default: 'Grigou – Gestionnaire de Budget Personnel Gratuit',
+    default: 'Grigou – Application de gestion de budget gratuite',
     template: '%s | Grigou',
   },
-  description: 'Gérez votre budget personnel gratuitement avec Grigou. Suivez vos dépenses, prévoyez vos finances et partagez vos portefeuilles. Sans pub, sans tracking.',
-  keywords: ['budget personnel', 'gestion budget', 'suivi dépenses', 'prévision financière', 'portefeuille'],
+  description: 'Grigou, l’application de gestion de budget personnel gratuite : suivez vos dépenses, prévoyez votre solde et partagez vos budgets. Sans pub, sans connexion bancaire.',
+  keywords: ['gestion de budget', 'budget personnel', 'application budget', 'suivi des dépenses', 'prévision de solde', 'budget partagé'],
   authors: [{ name: 'Grigou' }],
   openGraph: {
     title: 'Grigou – Gestionnaire de Budget Personnel',
@@ -40,7 +41,6 @@ export const metadata: Metadata = {
     images: ['/og-image.png'],
   },
   robots: { index: true, follow: true },
-  alternates: { canonical: 'https://grigou.fr' },
 };
 
 export default function RootLayout({
