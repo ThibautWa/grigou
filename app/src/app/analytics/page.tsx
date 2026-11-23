@@ -10,7 +10,7 @@ import {
     AreaChart, Area,
     PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    ResponsiveContainer, ReferenceLine,
+    ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList,
 } from 'recharts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,10 +55,19 @@ interface WeeklyData {
     is_future: boolean;
 }
 
+interface MonthVsAverageRow {
+    category: string;
+    color: string;
+    current: number;   // spent this month, to date
+    planned: number;   // recurring expenses still to come this month
+    average: number;   // monthly average over the previous months
+}
+
 interface AnalyticsData {
     monthly: MonthlyData[];
     weekly: WeeklyData[];
     categoryBreakdown: { outcome: CategoryData[]; income: CategoryData[] };
+    monthVsAverage?: { pastMonths: number; categories: MonthVsAverageRow[] };
     summary: Summary;
 }
 
@@ -89,7 +98,6 @@ const PIE_COLORS = [
 // HTML inline styles: CSS variables (follow the theme).
 // Inside the page, the SVG charts get real values via useThemeColors().
 const ACCENT = 'rgb(var(--accent))';
-const ACCENT2 = 'rgb(var(--info))';
 const INCOME_C = 'rgb(var(--positive))';
 const EXPENSE_C = 'rgb(var(--negative))';
 const PURPLE_C = 'rgb(var(--info))';
@@ -116,7 +124,6 @@ const fmtFull = (n: number) =>
 
 type BarVsExpenseChartType = 'bar' | 'area';
 type CumulativeChartType = 'line' | 'area';
-type NetBalanceChartType = 'bar' | 'line';
 type CatDisplayType = 'pie' | 'bar';
 type CumulativeGranularity = 'monthly' | 'weekly';
 
@@ -229,6 +236,68 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     );
 };
 
+/** Pie tooltip: amount and share, plus the detail of the grouped "Autres" slice. */
+const CategoryTooltip = ({ active, payload, others }: any) => {
+    if (!active || !payload?.length) return null;
+    const cat = payload[0].payload as CategoryData;
+    const isOthers = cat.category === 'Autres' && others?.length > 0;
+    return (
+        <div style={{
+            background: GD.card,
+            border: `1px solid ${GD.border}`,
+            borderRadius: 10,
+            padding: '0.75rem 1rem',
+            boxShadow: 'var(--shadow-pop)',
+            fontSize: '0.8125rem',
+            maxWidth: 280,
+        }}>
+            <p style={{ color: GD.text, fontWeight: 600, margin: 0 }}>
+                {cat.category} : {fmtFull(Number(cat.total))}
+            </p>
+            {isOthers && (
+                <div style={{ borderTop: `1px solid ${GD.border}`, marginTop: 6, paddingTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {others.map((o: CategoryData) => (
+                        <div key={o.category} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.75rem' }}>
+                            <span style={{ color: GD.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.category}</span>
+                            <span style={{ color: GD.text, fontWeight: 600, flexShrink: 0 }}>{fmtFull(Number(o.total))}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+/** Tooltip for "Ce mois-ci vs moyenne": spent, still planned, average and gap. */
+const MonthVsAverageTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const r = payload[0].payload as MonthVsAverageRow;
+    const projected = r.current + r.planned;
+    const diff = projected - r.average;
+    return (
+        <div style={{
+            background: GD.card,
+            border: `1px solid ${GD.border}`,
+            borderRadius: 10,
+            padding: '0.75rem 1rem',
+            boxShadow: 'var(--shadow-pop)',
+            fontSize: '0.8125rem',
+            minWidth: 200,
+        }}>
+            <p style={{ color: GD.text, fontWeight: 600, marginBottom: 6 }}>{r.category}</p>
+            <p style={{ color: GD.text2, margin: '2px 0' }}>Dépensé ce mois : <b style={{ color: GD.text }}>{fmtFull(r.current)}</b></p>
+            {r.planned > 0 && (
+                <p style={{ color: GD.text2, margin: '2px 0' }}>Encore prévu : <b style={{ color: GD.text }}>{fmtFull(r.planned)}</b></p>
+            )}
+            <p style={{ color: GD.text2, margin: '2px 0' }}>Moyenne mensuelle : <b style={{ color: GD.text }}>{fmtFull(r.average)}</b></p>
+            {r.average > 0 && (
+                <p style={{ color: diff > 0 ? EXPENSE_C : INCOME_C, margin: '6px 0 0', fontWeight: 600 }}>
+                    {diff > 0 ? '+' : '−'}{fmtFull(Math.abs(diff))} par rapport à la moyenne
+                </p>
+            )}
+        </div>
+    );
+};
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -236,7 +305,6 @@ export default function AnalyticsPage() {
     // Real colour values for the SVG charts (follow the theme)
     const C = useThemeColors();
     const ACCENT = C.accent;
-    const ACCENT2 = C.info;
     const INCOME_C = C.positive;
     const EXPENSE_C = C.negative;
     const PURPLE_C = C.info;
@@ -259,7 +327,6 @@ export default function AnalyticsPage() {
     const [cumulChartType, setCumulChartType] = useState<CumulativeChartType>('area');
     const [cumulGranularity, setCumulGranularity] = useState<CumulativeGranularity>('monthly');
     const [showTxOnHover, setShowTxOnHover] = useState(false);
-    const [netChartType, setNetChartType] = useState<NetBalanceChartType>('bar');
     const [catTab, setCatTab] = useState<'outcome' | 'income'>('outcome');
 
     // Balance adjustments are corrections, not real spending or income: leave
@@ -271,6 +338,47 @@ export default function AnalyticsPage() {
         return rows.map((c) => ({ ...c, percentage: total > 0 ? Math.round((Number(c.total) / total) * 100) : 0 }));
     }, [data, catTab]);
     const [catDisplay, setCatDisplay] = useState<CatDisplayType>('pie');
+
+    // Small categories are too thin to see in the ring: past the biggest ones,
+    // everything under 3 % is grouped into one "Autres" slice (listed in its tooltip).
+    const OTHERS_COLOR = C['fg-subtle'];
+    const pieData = useMemo(() => {
+        const total = catData.reduce((sum, c) => sum + Number(c.total), 0);
+        if (total <= 0) return { slices: catData, others: [] as CategoryData[] };
+        const sorted = [...catData].sort((a, b) => Number(b.total) - Number(a.total));
+        const kept: CategoryData[] = [];
+        const others: CategoryData[] = [];
+        sorted.forEach((c, i) => {
+            const share = Number(c.total) / total;
+            if (i < 8 && (share >= 0.03 || i < 3)) kept.push(c);
+            else others.push(c);
+        });
+        if (others.length <= 1) return { slices: sorted, others: [] as CategoryData[] };
+        const othersTotal = others.reduce((sum, c) => sum + Number(c.total), 0);
+        kept.push({
+            category: 'Autres',
+            icon: '',
+            color: OTHERS_COLOR,
+            total: othersTotal,
+            percentage: Math.round((othersTotal / total) * 100),
+        });
+        return { slices: kept, others };
+    }, [catData, OTHERS_COLOR]);
+    // ── This month vs average: biggest categories first, adjustments left out ──
+    const mva = useMemo(() => {
+        const src = data?.monthVsAverage;
+        if (!src) return null;
+        const rows = src.categories
+            .filter((c) => c.category !== ADJUSTMENT_CATEGORY)
+            .filter((c) => c.current + c.planned > 0 || c.average >= 1)
+            .sort((a, b) => Math.max(b.current + b.planned, b.average) - Math.max(a.current + a.planned, a.average));
+        const top = rows.slice(0, 8);
+        const sum = (k: 'current' | 'planned' | 'average') => rows.reduce((t, c) => t + c[k], 0);
+        return { pastMonths: src.pastMonths, rows: top, hidden: rows.length - top.length, current: sum('current'), planned: sum('planned'), average: sum('average') };
+    }, [data]);
+
+    const catColor = (cat: CategoryData, i: number) => cat.color || PIE_COLORS[i % PIE_COLORS.length];
+    const fmtPct = (cat: CategoryData) => (cat.percentage < 1 && Number(cat.total) > 0 ? '<1%' : `${cat.percentage}%`);
 
     // Load wallets
     useEffect(() => {
@@ -321,13 +429,40 @@ export default function AnalyticsPage() {
         return cumulGranularity === 'monthly' ? data.monthly : data.weekly;
     })();
 
+    // ── "Aujourd'hui" marker: the point for the current month / day, and the last
+    // point, so the forecast part after today can be shaded ──
+    const todayKey = (() => {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const monthKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+        const key = cumulGranularity === 'monthly' ? monthKey : `${monthKey}-${pad(now.getDate())}`;
+        return cumulData.some((d) => d.monthKey === key) ? key : undefined;
+    })();
+    const lastKey = cumulData.length ? cumulData[cumulData.length - 1].monthKey : undefined;
+    // The x axis is keyed by monthKey (day labels such as "23 Nov" repeat across years)
+    const cumulLabelByKey = new Map(cumulData.map((d) => [d.monthKey, d.month]));
+    const cumulTick = (key: string) => cumulLabelByKey.get(key) ?? key;
+    const todayMarkers = todayKey ? [
+        lastKey && lastKey !== todayKey ? (
+            <ReferenceArea key="forecast" x1={todayKey} x2={lastKey} fill={C['fg-subtle']} fillOpacity={0.08} ifOverflow="extendDomain" />
+        ) : null,
+        <ReferenceLine
+            key="today"
+            x={todayKey}
+            stroke={ACCENT}
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            label={{ value: "Aujourd'hui", position: 'top', fill: ACCENT, fontSize: 11, fontWeight: 600 }}
+        />,
+    ] : null;
+
     // ── Tooltip dédié pour le solde cumulé avec transactions au survol ──
     const CumulativeTooltip = ({ active, payload, label }: any) => {
         if (!active || !payload?.length) return null;
         const value = payload[0]?.value;
 
-        const point = cumulData.find((d: any) => d.month === label);
-        const dateKey = point?.monthKey ?? label;
+        const point = cumulData.find((d: any) => d.monthKey === label);
+        const dateKey = label;
 
         const dayTx = showTxOnHover
             ? transactions.filter(t => t.date?.startsWith(dateKey))
@@ -344,7 +479,7 @@ export default function AnalyticsPage() {
                 maxWidth: 300,
                 minWidth: 180,
             }}>
-                <p style={{ color: GD.text, fontWeight: 600, marginBottom: 6 }}>{label}</p>
+                <p style={{ color: GD.text, fontWeight: 600, marginBottom: 6 }}>{point?.month ?? label}</p>
                 <p style={{ color: PURPLE_C, fontWeight: 700, margin: 0, marginBottom: showTxOnHover ? 8 : 0 }}>
                     Solde : {fmtFull(value)}
                 </p>
@@ -548,7 +683,7 @@ export default function AnalyticsPage() {
                         {/* ── Solde cumulé ── */}
                         <ChartCard
                             title="Évolution du solde"
-                            subtitle="La zone pointillée représente les prévisions basées sur vos récurrences"
+                            subtitle="La ligne marque aujourd'hui ; la zone grisée après elle est une prévision basée sur vos récurrences"
                             controls={
                                 <>
                                     <SegmentedControl<CumulativeGranularity>
@@ -594,7 +729,7 @@ export default function AnalyticsPage() {
                         >
                             <ResponsiveContainer width="100%" height={300}>
                                 {cumulChartType === 'area' ? (
-                                    <AreaChart data={cumulData}>
+                                    <AreaChart data={cumulData} margin={{ top: 22, right: 8 }}>
                                         <defs>
                                             <linearGradient id="gc" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor={PURPLE_C} stopOpacity={0.3} />
@@ -602,10 +737,11 @@ export default function AnalyticsPage() {
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
+                                        <XAxis dataKey="monthKey" tickFormatter={cumulTick} tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
                                         <Tooltip content={<CumulativeTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
+                                        {todayMarkers}
                                         <Area
                                             type="monotone"
                                             dataKey="cumulative"
@@ -618,12 +754,13 @@ export default function AnalyticsPage() {
                                         />
                                     </AreaChart>
                                 ) : (
-                                    <LineChart data={cumulData}>
+                                    <LineChart data={cumulData} margin={{ top: 22, right: 8 }}>
                                         <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
+                                        <XAxis dataKey="monthKey" tickFormatter={cumulTick} tick={axisStyle} interval={cumulGranularity === 'weekly' ? Math.floor(cumulData.length / 15) : 0} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
                                         <Tooltip content={<CumulativeTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
+                                        {todayMarkers}
                                         <Line
                                             type="monotone"
                                             dataKey="cumulative"
@@ -672,36 +809,42 @@ export default function AnalyticsPage() {
                                     <ResponsiveContainer width={220} height={220}>
                                         <PieChart>
                                             <Pie
-                                                data={catData}
+                                                data={pieData.slices}
                                                 dataKey="total"
                                                 nameKey="category"
                                                 cx="50%" cy="50%"
                                                 outerRadius={95}
                                                 innerRadius={52}
                                                 paddingAngle={2}
+                                                minAngle={4}
+                                                stroke={GDs.card}
+                                                strokeWidth={1}
                                             >
-                                                {catData.map((cat, i) => (
-                                                    <Cell key={i} fill={cat.color || PIE_COLORS[i % PIE_COLORS.length]} />
+                                                {pieData.slices.map((cat, i) => (
+                                                    <Cell key={i} fill={catColor(cat, i)} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip formatter={(v: number) => fmtFull(v)} contentStyle={{ background: GD.card2, border: `1px solid ${GD.border2}`, borderRadius: 10, fontSize: 13 }} />
+                                            <Tooltip content={<CategoryTooltip others={pieData.others} />} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 200 }}>
-                                        {catData.slice(0, 10).map((cat, i) => (
+                                        {pieData.slices.map((cat, i) => (
                                             <div key={cat.category} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
+                                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: catColor(cat, i), flexShrink: 0 }} />
                                                 <span style={{ flex: 1, fontSize: '0.8125rem', color: GD.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                                     {cat.category}
+                                                    {cat.category === 'Autres' && pieData.others.length > 0 && (
+                                                        <span style={{ color: GD.muted, fontSize: '0.75rem' }}>({pieData.others.length})</span>
+                                                    )}
                                                 </span>
                                                 <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: GD.text, flexShrink: 0 }}>
                                                     {fmtFull(cat.total)}
                                                 </span>
                                                 <div style={{ width: 64, background: GD.card3, borderRadius: 9999, height: 5, flexShrink: 0 }}>
-                                                    <div style={{ width: `${cat.percentage}%`, background: cat.color || PIE_COLORS[i % PIE_COLORS.length], height: 5, borderRadius: 9999 }} />
+                                                    <div style={{ width: `${cat.percentage}%`, background: catColor(cat, i), height: 5, borderRadius: 9999 }} />
                                                 </div>
                                                 <span style={{ fontSize: '0.7rem', color: GD.muted, width: 28, textAlign: 'right', flexShrink: 0 }}>
-                                                    {cat.percentage}%
+                                                    {fmtPct(cat)}
                                                 </span>
                                             </div>
                                         ))}
@@ -744,69 +887,61 @@ export default function AnalyticsPage() {
                             )}
                         </ChartCard>
 
-                        {/* ── Solde net mensuel ── */}
-                        <ChartCard
-                            title="Solde net par mois"
-                            subtitle="Revenus − Dépenses · vert = excédent · rouge = déficit · transparent = prévision"
-                            controls={
-                                <SegmentedControl<NetBalanceChartType>
-                                    value={netChartType}
-                                    onChange={setNetChartType}
-                                    options={[
-                                        { value: 'bar', label: 'Barres' },
-                                        { value: 'line', label: '— Ligne' },
-                                    ]}
-                                />
-                            }
-                        >
-                            <ResponsiveContainer width="100%" height={240}>
-                                {netChartType === 'bar' ? (
-                                    <BarChart data={data.monthly} barCategoryGap="30%">
-                                        <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} />
-                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <ReferenceLine y={0} stroke={GD.border2} />
-                                        <Bar dataKey="balance" name="Solde net" radius={[3, 3, 0, 0]}>
-                                            {data.monthly.map((m, i) => (
-                                                <Cell
-                                                    key={i}
-                                                    fill={m.balance >= 0 ? INCOME_C : EXPENSE_C}
-                                                    opacity={m.is_future ? 0.35 : 1}
-                                                />
-                                            ))}
+
+                        {/* ── Ce mois-ci vs moyenne ── */}
+                        {mva && mva.rows.length > 0 && (
+                            <ChartCard
+                                title="Ce mois-ci par rapport à votre moyenne"
+                                subtitle={mva.pastMonths > 0
+                                    ? `Dépenses du mois en cours (à ce jour + récurrences encore prévues) comparées à la moyenne des ${mva.pastMonths} mois précédents`
+                                    : 'Pas encore de mois précédent pour calculer une moyenne'}
+                            >
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem 1.5rem', fontSize: '0.8125rem', color: GD.text2, marginBottom: '0.75rem' }}>
+                                    <span>
+                                        Ce mois-ci : <b style={{ color: GD.text }}>{fmt(mva.current)}</b>
+                                        {mva.planned > 0 && <> + {fmt(mva.planned)} prévus</>}
+                                    </span>
+                                    {mva.pastMonths > 0 && (
+                                        <span>Moyenne : <b style={{ color: GD.text }}>{fmt(mva.average)}</b> / mois</span>
+                                    )}
+                                    {mva.hidden > 0 && <span style={{ color: GD.muted }}>{mva.hidden} petite(s) catégorie(s) non affichée(s)</span>}
+                                </div>
+                                <ResponsiveContainer width="100%" height={Math.max(220, mva.rows.length * 52)}>
+                                    <BarChart data={mva.rows} layout="vertical" margin={{ left: 8, right: 56 }} barGap={2} barCategoryGap="22%">
+                                        <CartesianGrid horizontal={false} stroke={GD.border} />
+                                        <XAxis type="number" tick={axisStyle} tickFormatter={fmt} />
+                                        <YAxis type="category" dataKey="category" tick={{ ...axisStyle, fill: GD.text2, fontSize: 12 }} width={120} />
+                                        <Tooltip content={<MonthVsAverageTooltip />} cursor={{ fill: C['fg-subtle'], fillOpacity: 0.08 }} />
+                                        <Legend wrapperStyle={{ fontSize: 12, color: GD.text2 }} />
+                                        <Bar dataKey="current" stackId="month" name="Ce mois-ci" fill={ACCENT} />
+                                        <Bar dataKey="planned" stackId="month" name="Encore prévu" fill={`color-mix(in srgb, ${ACCENT} 35%, transparent)`} radius={[0, 4, 4, 0]}>
+                                            <LabelList
+                                                content={(props: any) => {
+                                                    const r = mva.rows[props.index];
+                                                    if (!r || r.average <= 0) return null;
+                                                    const pct = Math.round(((r.current + r.planned) / r.average - 1) * 100);
+                                                    return (
+                                                        <text
+                                                            x={props.x + props.width + 6}
+                                                            y={props.y + props.height / 2}
+                                                            dominantBaseline="middle"
+                                                            fontSize={11}
+                                                            fontWeight={600}
+                                                            fill={pct > 5 ? EXPENSE_C : pct < -5 ? INCOME_C : C['fg-subtle']}
+                                                        >
+                                                            {pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct)} %
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
                                         </Bar>
+                                        {mva.pastMonths > 0 && (
+                                            <Bar dataKey="average" name="Moyenne mensuelle" fill={`color-mix(in srgb, ${C['fg-subtle']} 55%, transparent)`} radius={[0, 4, 4, 0]} />
+                                        )}
                                     </BarChart>
-                                ) : (
-                                    <LineChart data={data.monthly}>
-                                        <CartesianGrid {...gridStyle} />
-                                        <XAxis dataKey="month" tick={axisStyle} />
-                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="balance"
-                                            stroke={ACCENT2}
-                                            strokeWidth={2.5}
-                                            name="Solde net"
-                                            dot={(props: any) => {
-                                                const val = data.monthly[props.index]?.balance ?? 0;
-                                                return (
-                                                    <circle
-                                                        key={props.key}
-                                                        cx={props.cx} cy={props.cy} r={4}
-                                                        fill={val >= 0 ? INCOME_C : EXPENSE_C}
-                                                        stroke={GD.card} strokeWidth={2}
-                                                    />
-                                                );
-                                            }}
-                                            activeDot={{ r: 6 }}
-                                        />
-                                    </LineChart>
-                                )}
-                            </ResponsiveContainer>
-                        </ChartCard>
+                                </ResponsiveContainer>
+                            </ChartCard>
+                        )}
                     </>
                 )}
             </main>
