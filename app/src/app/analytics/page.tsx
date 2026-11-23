@@ -67,8 +67,9 @@ interface AnalyticsData {
     monthly: MonthlyData[];
     weekly: WeeklyData[];
     categoryBreakdown: { outcome: CategoryData[]; income: CategoryData[] };
-    monthVsAverage?: { pastMonths: number; categories: MonthVsAverageRow[] };
-    period?: { from: string; to: string; months: number; historyMonths: number };
+    monthVsAverage?: { pastMonths: number; averageBasis?: 'period' | 'last12'; categories: MonthVsAverageRow[] };
+    weeks?: MonthlyData[];
+    period?: { from: string; to: string; days: number; historyDays: number };
     summary: Summary;
 }
 
@@ -126,13 +127,18 @@ const fmtFull = (n: number) =>
 type BarVsExpenseChartType = 'bar' | 'area';
 type CumulativeChartType = 'line' | 'area';
 type CatDisplayType = 'pie' | 'bar';
-type CumulativeGranularity = 'monthly' | 'weekly';
+// 'weekly' is historical naming for the daily series
+type CumulativeGranularity = 'monthly' | 'weeks' | 'weekly';
+type RevenueGranularity = 'month' | 'week';
 
 // ─── Period ───────────────────────────────────────────────────────────────────
 
-type PeriodPreset = '3' | '6' | '12' | '24' | '36' | '60' | 'ytd' | 'last-year' | 'all' | 'custom';
+type PeriodPreset = '7d' | '14d' | '28d' | '3' | '6' | '12' | '24' | '36' | '60' | 'ytd' | 'last-year' | 'all' | 'custom';
 
 const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
+    { value: '7d', label: '7 derniers jours' },
+    { value: '14d', label: '2 dernières semaines' },
+    { value: '28d', label: '4 dernières semaines' },
     { value: '3', label: '3 derniers mois' },
     { value: '6', label: '6 derniers mois' },
     { value: '12', label: '12 derniers mois' },
@@ -145,15 +151,41 @@ const PERIOD_OPTIONS: { value: PeriodPreset; label: string }[] = [
     { value: 'custom', label: 'Personnalisée…' },
 ];
 
-const FORECAST_OPTIONS = [0, 3, 6, 12] as const;
+/** Forecast after today: '1w' / '2w' in weeks (to that day), otherwise whole months. */
+type Forecast = '0' | '1w' | '2w' | '1' | '3' | '6' | '12';
+const FORECAST_OPTIONS: { value: Forecast; label: string }[] = [
+    { value: '0', label: 'Sans prévision' },
+    { value: '1w', label: '+ 1 semaine de prévision' },
+    { value: '2w', label: '+ 2 semaines de prévision' },
+    { value: '1', label: '+ 1 mois de prévision' },
+    { value: '3', label: '+ 3 mois de prévision' },
+    { value: '6', label: '+ 6 mois de prévision' },
+    { value: '12', label: '+ 12 mois de prévision' },
+];
 
-const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const ym = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+const ymd = (d: Date) => `${ym(d)}-${pad2(d.getDate())}`;
 const addMonthsYm = (n: number) => { const d = new Date(); return ym(new Date(d.getFullYear(), d.getMonth() + n, 1)); };
+const addDaysYmd = (n: number) => { const d = new Date(); return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)); };
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** End of the period: today + forecast (a day for weeks, the end of a month otherwise). */
+function forecastEnd(forecast: Forecast, shortPeriod: boolean): string {
+    if (forecast === '1w') return addDaysYmd(7);
+    if (forecast === '2w') return addDaysYmd(14);
+    if (forecast === '0') return shortPeriod ? addDaysYmd(0) : addMonthsYm(0);
+    return addMonthsYm(parseInt(forecast));
+}
 
 /** Query string for /api/analytics from the period controls. */
-function periodQuery(preset: PeriodPreset, forecast: number, customFrom: string, customTo: string): string {
-    const to = addMonthsYm(forecast);
+function periodQuery(preset: PeriodPreset, forecast: Forecast, customFrom: string, customTo: string): string {
     const year = new Date().getFullYear();
+    if (preset.endsWith('d')) {
+        const days = parseInt(preset);
+        return `from=${addDaysYmd(1 - days)}&to=${forecastEnd(forecast, true)}`;
+    }
+    const to = forecastEnd(forecast, false);
     switch (preset) {
         case 'ytd': return `from=${year}-01&to=${to}`;
         case 'last-year': return `from=${year - 1}-01&to=${year - 1}-12`;
@@ -165,7 +197,7 @@ function periodQuery(preset: PeriodPreset, forecast: number, customFrom: string,
 
 /** Remembered period controls (per browser; harmless if storage is unavailable). */
 const PERIOD_STORAGE_KEY = 'grigou.analytics.period';
-function loadPeriod(): { preset: PeriodPreset; forecast: number; from: string; to: string } | null {
+function loadPeriod(): { preset: PeriodPreset; forecast: unknown; from: string; to: string } | null {
     try {
         const raw = window.localStorage.getItem(PERIOD_STORAGE_KEY);
         return raw ? JSON.parse(raw) : null;
@@ -361,17 +393,18 @@ export default function AnalyticsPage() {
     const [wallets, setWallets] = useState<Wallet[]>([]);
     const [walletId, setWalletId] = useState<number | null>(null);
     const [periodPreset, setPeriodPreset] = useState<PeriodPreset>('12');
-    const [forecast, setForecast] = useState<number>(3);
-    const [customFrom, setCustomFrom] = useState<string>(() => addMonthsYm(-11));
-    const [customTo, setCustomTo] = useState<string>(() => addMonthsYm(3));
+    const [forecast, setForecast] = useState<Forecast>('3');
+    const [customFrom, setCustomFrom] = useState<string>(() => addDaysYmd(-27));
+    const [customTo, setCustomTo] = useState<string>(() => addDaysYmd(7));
     const [periodLoaded, setPeriodLoaded] = useState(false);
     useEffect(() => {
         const saved = loadPeriod();
         if (saved && PERIOD_OPTIONS.some((o) => o.value === saved.preset)) {
             setPeriodPreset(saved.preset);
-            if (FORECAST_OPTIONS.includes(saved.forecast as any)) setForecast(saved.forecast);
-            if (/^\d{4}-\d{2}$/.test(saved.from)) setCustomFrom(saved.from);
-            if (/^\d{4}-\d{2}$/.test(saved.to)) setCustomTo(saved.to);
+            const f = String(saved.forecast);
+            if (FORECAST_OPTIONS.some((o) => o.value === f)) setForecast(f as Forecast);
+            if (DAY_RE.test(saved.from)) setCustomFrom(saved.from);
+            if (DAY_RE.test(saved.to)) setCustomTo(saved.to);
         }
         setPeriodLoaded(true);
     }, []);
@@ -381,7 +414,7 @@ export default function AnalyticsPage() {
             window.localStorage.setItem(PERIOD_STORAGE_KEY, JSON.stringify({ preset: periodPreset, forecast, from: customFrom, to: customTo }));
         } catch { /* storage unavailable */ }
     }, [periodLoaded, periodPreset, forecast, customFrom, customTo]);
-    const customValid = /^\d{4}-\d{2}$/.test(customFrom) && /^\d{4}-\d{2}$/.test(customTo) && customFrom <= customTo;
+    const customValid = DAY_RE.test(customFrom) && DAY_RE.test(customTo) && customFrom <= customTo;
     const query = periodPreset === 'custom' && !customValid ? null : periodQuery(periodPreset, forecast, customFrom, customTo);
     const forecastApplies = periodPreset !== 'custom' && periodPreset !== 'last-year';
     const [data, setData] = useState<AnalyticsData | null>(null);
@@ -393,7 +426,10 @@ export default function AnalyticsPage() {
     const [revenueChartType, setRevenueChartType] = useState<BarVsExpenseChartType>('bar');
     const [showPredictedBars, setShowPredictedBars] = useState(true);
     const [cumulChartType, setCumulChartType] = useState<CumulativeChartType>('area');
-    const [cumulGranularity, setCumulGranularity] = useState<CumulativeGranularity>('monthly');
+    // null = automatic, from the length of the period
+    const [cumulGranChoice, setCumulGranularity] = useState<CumulativeGranularity | null>(null);
+    const [revenueGranChoice, setRevenueGranularity] = useState<RevenueGranularity | null>(null);
+    useEffect(() => { setCumulGranularity(null); setRevenueGranularity(null); }, [query]);
     const [showTxOnHover, setShowTxOnHover] = useState(false);
     const [catTab, setCatTab] = useState<'outcome' | 'income'>('outcome');
 
@@ -490,17 +526,29 @@ export default function AnalyticsPage() {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     const s = data?.summary;
-    const historyMonths = data?.period?.historyMonths ?? 0;
+    const periodDays = data?.period?.days ?? 365;
+    const historyDays = data?.period?.historyDays ?? 0;
     const periodText = periodPreset === 'ytd'
         ? 'depuis janvier'
         : periodPreset === 'last-year'
             ? `sur ${new Date().getFullYear() - 1}`
-            : `sur ${historyMonths} mois`;
+            : historyDays <= 31
+                ? `sur ${historyDays} jour${historyDays > 1 ? 's' : ''}`
+                : historyDays <= 98
+                    ? `sur ${Math.round(historyDays / 7)} semaines`
+                    : `sur ${Math.round(historyDays / 30.44)} mois`;
+    const cumulGranularity: CumulativeGranularity = cumulGranChoice
+        ?? (periodDays <= 45 ? 'weekly' : periodDays <= 190 ? 'weeks' : 'monthly');
+    // Short periods: zoom the balance axis on the data instead of starting at 0
+    const cumulYDomain: [any, any] = periodDays <= 190 ? ['auto', 'auto'] : [0, 'auto'];
+    const revenueGranularity: RevenueGranularity = revenueGranChoice ?? (periodDays <= 120 ? 'week' : 'month');
+    const revenueData = (revenueGranularity === 'week' ? data?.weeks : undefined) ?? data?.monthly ?? [];
 
     // ── Cumulative data ──
     const cumulData = (() => {
         if (!data) return [];
-        return cumulGranularity === 'monthly' ? data.monthly : data.weekly;
+        if (cumulGranularity === 'weeks' && data.weeks) return data.weeks;
+        return cumulGranularity === 'weekly' ? data.weekly : data.monthly;
     })();
 
     // ── "Aujourd'hui" marker: the point for the current month / day, and the last
@@ -509,7 +557,12 @@ export default function AnalyticsPage() {
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, '0');
         const monthKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
-        const key = cumulGranularity === 'monthly' ? monthKey : `${monthKey}-${pad(now.getDate())}`;
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+        const key = cumulGranularity === 'monthly'
+            ? monthKey
+            : cumulGranularity === 'weeks'
+                ? ymd(monday)
+                : `${monthKey}-${pad(now.getDate())}`;
         return cumulData.some((d) => d.monthKey === key) ? key : undefined;
     })();
     const lastKey = cumulData.length ? cumulData[cumulData.length - 1].monthKey : undefined;
@@ -538,8 +591,14 @@ export default function AnalyticsPage() {
         const point = cumulData.find((d: any) => d.monthKey === label);
         const dateKey = label;
 
+        // A week is keyed by its Monday: take the 7 days from it
+        const weekEnd = cumulGranularity === 'weeks' && typeof dateKey === 'string'
+            ? (() => { const [y, m, d] = dateKey.split('-').map(Number); return ymd(new Date(y, m - 1, d + 6)); })()
+            : null;
         const dayTx = showTxOnHover
-            ? transactions.filter(t => t.date?.startsWith(dateKey))
+            ? transactions.filter(t => weekEnd
+                ? t.date && t.date.slice(0, 10) >= dateKey && t.date.slice(0, 10) <= weekEnd
+                : t.date?.startsWith(dateKey))
             : [];
 
         return (
@@ -592,7 +651,7 @@ export default function AnalyticsPage() {
                         fontStyle: 'italic',
                         fontSize: '0.75rem',
                     }}>
-                        Aucune transaction ce jour
+                        {cumulGranularity === 'weeks' ? 'Aucune transaction cette semaine' : cumulGranularity === 'monthly' ? 'Aucune transaction ce mois' : 'Aucune transaction ce jour'}
                     </p>
                 )}
             </div>
@@ -633,34 +692,32 @@ export default function AnalyticsPage() {
                     {periodPreset === 'custom' ? (
                         <div className="flex items-center gap-1.5 text-sm text-fg-muted">
                             <input
-                                type="month"
+                                type="date"
                                 value={customFrom}
                                 max={customTo || undefined}
                                 onChange={e => setCustomFrom(e.target.value)}
-                                aria-label="Du mois"
+                                aria-label="Du"
                                 className="field h-9 w-auto !py-1"
                             />
                             <span>→</span>
                             <input
-                                type="month"
+                                type="date"
                                 value={customTo}
                                 min={customFrom || undefined}
                                 onChange={e => setCustomTo(e.target.value)}
-                                aria-label="Au mois"
+                                aria-label="Au"
                                 className="field h-9 w-auto !py-1"
                             />
                         </div>
                     ) : forecastApplies && (
                         <select
                             value={forecast}
-                            onChange={e => setForecast(parseInt(e.target.value))}
+                            onChange={e => setForecast(e.target.value as Forecast)}
                             aria-label="Prévisions"
                             title="Mois de prévision affichés après aujourd'hui"
                             className="field h-9 w-auto !py-1"
                         >
-                            {FORECAST_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n === 0 ? 'Sans prévision' : `+ ${n} mois de prévision`}</option>
-                            ))}
+                            {FORECAST_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                     )}
                     <button onClick={fetchData} className="btn-secondary h-9" title="Actualiser">
@@ -727,6 +784,14 @@ export default function AnalyticsPage() {
                             subtitle="Barres opaques = réel · transparentes = prévisions"
                             controls={
                                 <>
+                                    <SegmentedControl<RevenueGranularity>
+                                        value={revenueGranularity}
+                                        onChange={setRevenueGranularity}
+                                        options={[
+                                            { value: 'month', label: 'Mois' },
+                                            { value: 'week', label: 'Semaines' },
+                                        ]}
+                                    />
                                     <SegmentedControl<BarVsExpenseChartType>
                                         value={revenueChartType}
                                         onChange={setRevenueChartType}
@@ -749,7 +814,7 @@ export default function AnalyticsPage() {
                         >
                             <ResponsiveContainer width="100%" height={300}>
                                 {revenueChartType === 'bar' ? (
-                                    <BarChart data={data.monthly} barCategoryGap="22%">
+                                    <BarChart data={revenueData} barCategoryGap="22%">
                                         <CartesianGrid {...gridStyle} />
                                         <XAxis dataKey="month" tick={axisStyle} />
                                         <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
@@ -761,7 +826,7 @@ export default function AnalyticsPage() {
                                         {showPredictedBars && <Bar dataKey="predicted_outcome" fill={EXPENSE_C} name="Dépenses prévues" radius={[3, 3, 0, 0]} opacity={0.35} />}
                                     </BarChart>
                                 ) : (
-                                    <AreaChart data={data.monthly}>
+                                    <AreaChart data={revenueData}>
                                         <defs>
                                             <linearGradient id="gi" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor={INCOME_C} stopOpacity={0.25} />
@@ -795,6 +860,7 @@ export default function AnalyticsPage() {
                                         onChange={setCumulGranularity}
                                         options={[
                                             { value: 'monthly', label: 'Mensuel' },
+                                            { value: 'weeks', label: 'Hebdo' },
                                             { value: 'weekly', label: 'Journalier' },
                                         ]}
                                     />
@@ -842,7 +908,7 @@ export default function AnalyticsPage() {
                                         </defs>
                                         <CartesianGrid {...gridStyle} />
                                         <XAxis dataKey="monthKey" tickFormatter={cumulTick} tick={axisStyle} interval={Math.floor(cumulData.length / 15)} />
-                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
+                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} domain={cumulYDomain} />
                                         <Tooltip content={<CumulativeTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
                                         {todayMarkers}
@@ -861,7 +927,7 @@ export default function AnalyticsPage() {
                                     <LineChart data={cumulData} margin={{ top: 22, right: 8 }}>
                                         <CartesianGrid {...gridStyle} />
                                         <XAxis dataKey="monthKey" tickFormatter={cumulTick} tick={axisStyle} interval={Math.floor(cumulData.length / 15)} />
-                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} />
+                                        <YAxis tick={axisStyle} tickFormatter={fmt} width={80} domain={cumulYDomain} />
                                         <Tooltip content={<CumulativeTooltip />} />
                                         <ReferenceLine y={0} stroke={GD.border2} strokeDasharray="4 4" />
                                         {todayMarkers}
