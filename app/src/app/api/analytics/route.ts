@@ -7,8 +7,16 @@ import {
     addDays, addWeeks, addMonths, addYears,
     isBefore, isAfter, format,
     startOfMonth, endOfMonth,
-    subMonths, startOfDay,
+    subMonths, startOfDay, differenceInCalendarMonths,
 } from 'date-fns';
+
+/** Longest period served at once (10 years, ~3 650 daily points). */
+const MAX_MONTHS = 120;
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+function parseMonth(ym: string): Date {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1);
+}
 
 // ─── Prediction helpers ───────────────────────────────────────────────────────
 
@@ -136,10 +144,13 @@ function fillBuckets(
     predictions: TxEntry[],
     anchorBalance: number,
 ) {
+    // Buckets are keyed 'yyyy-MM' or 'yyyy-MM-dd': look them up by date prefix
+    const keyLen = buckets[0]?.key.length ?? 7;
+    const byKey = new Map(buckets.map(b => [b.key, b]));
+
     // Assign real transactions
     for (const tx of realTxs) {
-        const d = parseLocalDate(tx.date);
-        const bucket = buckets.find(b => d >= b.start && d <= b.end);
+        const bucket = byKey.get(tx.date.slice(0, keyLen));
         if (!bucket) continue;
         if (tx.type === 'income') bucket.income += tx.amount;
         else bucket.outcome += tx.amount;
@@ -147,8 +158,7 @@ function fillBuckets(
 
     // Assign predictions
     for (const pred of predictions) {
-        const d = parseLocalDate(pred.date);
-        const bucket = buckets.find(b => d >= b.start && d <= b.end);
+        const bucket = byKey.get(pred.date.slice(0, keyLen));
         if (!bucket) continue;
         if (pred.type === 'income') bucket.predicted_income += pred.amount;
         else bucket.predicted_outcome += pred.amount;
@@ -179,7 +189,9 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = request.nextUrl;
         const walletId = searchParams.get('walletId');
-        const monthsBack = Math.min(parseInt(searchParams.get('months') || '12'), 24);
+        const fromParam = searchParams.get('from');   // 'yyyy-MM' or 'all'
+        const toParam = searchParams.get('to');       // 'yyyy-MM'
+        const monthsBack = Math.min(Math.max(parseInt(searchParams.get('months') || '12') || 12, 1), MAX_MONTHS);
 
         if (!walletId) {
             return NextResponse.json({ error: 'walletId requis' }, { status: 400 });
@@ -191,9 +203,31 @@ export async function GET(request: NextRequest) {
         }
 
         const now = new Date();
-        const historyStart = startOfMonth(subMonths(now, monthsBack - 1));
-        const forecastEnd = endOfMonth(addMonths(now, 3));
-        const totalMonths = monthsBack + 3; // history + 3 months forecast
+
+        // ── 0. Period: [from, to] in whole months. Defaults to the last `months`
+        // months + 3 months of forecast. `from=all` starts at the first transaction.
+        let historyStart = startOfMonth(subMonths(now, monthsBack - 1));
+        if (fromParam === 'all') {
+            const first = await pool.query(
+                `SELECT MIN(date)::text AS d FROM transactions WHERE wallet_id = $1`,
+                [parseInt(walletId)],
+            );
+            if (first.rows[0]?.d) historyStart = startOfMonth(parseLocalDate(first.rows[0].d));
+        } else if (fromParam && MONTH_RE.test(fromParam)) {
+            historyStart = parseMonth(fromParam);
+        }
+        let rangeEnd = toParam && MONTH_RE.test(toParam)
+            ? endOfMonth(parseMonth(toParam))
+            : endOfMonth(addMonths(now, 3));
+        if (rangeEnd < historyStart) rangeEnd = endOfMonth(historyStart);
+        let totalMonths = differenceInCalendarMonths(rangeEnd, historyStart) + 1;
+        if (totalMonths > MAX_MONTHS) {
+            // Keep the end, drop the oldest months
+            historyStart = startOfMonth(subMonths(rangeEnd, MAX_MONTHS - 1));
+            totalMonths = MAX_MONTHS;
+        }
+        // Recurrences are projected up to the end of the period (nothing if it is in the past)
+        const forecastEnd = rangeEnd;
 
         // ── 1. Real transactions ──────────────────────────────────────────────────
         const weeklyFetchStart = historyStart; // daily buckets start exactly at historyStart
@@ -206,7 +240,7 @@ export async function GET(request: NextRequest) {
        ORDER BY date ASC`,
             // On charge jusqu'à la fin du mois courant pour inclure les transactions
             // saisies manuellement avec une date dans le futur proche (même mois)
-            [parseInt(walletId), format(weeklyFetchStart, 'yyyy-MM-dd'), format(endOfMonth(addMonths(now, 1)), 'yyyy-MM-dd')],
+            [parseInt(walletId), format(weeklyFetchStart, 'yyyy-MM-dd'), format(rangeEnd, 'yyyy-MM-dd')],
         );
         const realTxs = txResult.rows as TxEntry[];
         // Pour les buckets mensuels on filtre à partir de historyStart
@@ -321,7 +355,7 @@ export async function GET(request: NextRequest) {
          AND t.date <= $3
        GROUP BY COALESCE(c.name, t.category, 'Sans catégorie'), c.icon, c.color, t.type
        ORDER BY total DESC`,
-            [parseInt(walletId), format(historyStart, 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')],
+            [parseInt(walletId), format(historyStart, 'yyyy-MM-dd'), format(rangeEnd < now ? rangeEnd : now, 'yyyy-MM-dd')],
         );
 
         const categoryBreakdown: {
@@ -359,9 +393,11 @@ export async function GET(request: NextRequest) {
          AND t.date >= $2
          AND t.date <= $3
        GROUP BY 1, 2, 3`,
-            [parseInt(walletId), format(historyStart, 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')],
+            [parseInt(walletId), format(historyStart < startOfMonth(now) ? historyStart : startOfMonth(now), 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')],
         );
         const curKey = format(now, 'yyyy-MM');
+        const periodFirstKey = format(historyStart, 'yyyy-MM');
+        const periodLastKey = format(rangeEnd, 'yyyy-MM');
         const pastMonths = new Set<string>();
         const byCat = new Map<string, { category: string; color: string; current: number; pastTotal: number; planned: number }>();
         const catEntry = (category: string, color = '#94a3b8') => {
@@ -373,11 +409,15 @@ export async function GET(request: NextRequest) {
             if (row.category === 'Ajustement') continue; // balance corrections, not spending
             const e = catEntry(row.category, row.color);
             if (row.month === curKey) e.current += row.total;
-            else { e.pastTotal += row.total; pastMonths.add(row.month); }
+            else if (row.month >= periodFirstKey && row.month <= periodLastKey) { e.pastTotal += row.total; pastMonths.add(row.month); }
         }
         // Recurring expenses still to come this month (predictions start tomorrow)
         const currentMonthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
-        for (const pred of allPredictions) {
+        const curMonthPredictions: TxEntry[] = [];
+        for (const tx of recurResult.rows) {
+            curMonthPredictions.push(...generatePredictionsForRange(tx, predictionStart, endOfMonth(now)));
+        }
+        for (const pred of curMonthPredictions) {
             if (pred.type !== 'outcome' || pred.date > currentMonthEnd || pred.date < currentMonthStart) continue;
             catEntry(pred.category ?? 'Sans catégorie').planned += pred.amount;
         }
@@ -396,8 +436,17 @@ export async function GET(request: NextRequest) {
         // ── 8. Summary KPIs ───────────────────────────────────────────────────────
         const currentMonthKey = format(now, 'yyyy-MM');
         const prevMonthKey = format(subMonths(now, 1), 'yyyy-MM');
-        const curMonth = monthly.find(m => m.monthKey === currentMonthKey);
-        const prevMonth = monthly.find(m => m.monthKey === prevMonthKey);
+        const kpiResult = await pool.query(
+            `SELECT to_char(date, 'YYYY-MM') AS month,
+              COALESCE(SUM(CASE WHEN type = 'income' THEN amount END), 0)::float AS income,
+              COALESCE(SUM(CASE WHEN type = 'outcome' THEN amount END), 0)::float AS outcome
+       FROM transactions
+       WHERE wallet_id = $1 AND date >= $2 AND date <= $3
+       GROUP BY 1`,
+            [parseInt(walletId), format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd'), format(endOfMonth(now), 'yyyy-MM-dd')],
+        );
+        const curMonth = kpiResult.rows.find(r => r.month === currentMonthKey);
+        const prevMonth = kpiResult.rows.find(r => r.month === prevMonthKey);
 
         const totalIncome = realTxsMonthly.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const totalOutcome = realTxsMonthly.filter(t => t.type === 'outcome').reduce((s, t) => s + t.amount, 0);
@@ -408,6 +457,12 @@ export async function GET(request: NextRequest) {
             weekly,
             categoryBreakdown,
             monthVsAverage,
+            period: {
+                from: format(historyStart, 'yyyy-MM'),
+                to: format(rangeEnd, 'yyyy-MM'),
+                months: totalMonths,
+                historyMonths: Math.max(0, Math.min(totalMonths, differenceInCalendarMonths(now, historyStart) + 1)),
+            },
             summary: {
                 currentBalance,
                 currentMonth: {
