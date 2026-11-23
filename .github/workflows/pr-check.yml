@@ -8,6 +8,11 @@ jobs:
   review:
     name: Code Review Checks
     runs-on: ubuntu-latest
+    # The last step posts a summary comment on the PR: the default token is read-only
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     
     steps:
       - name: 📥 Checkout code
