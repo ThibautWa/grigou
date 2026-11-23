@@ -51,16 +51,59 @@ const STEPS = [
 
 const PERKS = ['Sans connexion bancaire', 'Sans publicité ni pistage', 'Hébergé en France'];
 
-const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'Grigou',
-    applicationCategory: 'FinanceApplication',
-    operatingSystem: 'Web',
-    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
-    description: 'Application de gestion de budget personnel gratuite.',
-    url: 'https://grigou.fr',
-};
+const FAQ = [
+    {
+        q: 'Grigou est-il vraiment gratuit ?',
+        a: 'Oui. Grigou est une application de gestion de budget gratuite, sans abonnement, sans publicité et sans carte bancaire à l’inscription.',
+    },
+    {
+        q: 'Faut-il connecter son compte bancaire ?',
+        a: 'Non. Vous saisissez vous-même vos revenus et vos dépenses. Grigou n’a jamais accès à votre banque, ce qui garde vos identifiants bancaires hors de portée.',
+    },
+    {
+        q: 'Comment Grigou aide-t-il à gérer son budget ?',
+        a: 'Vous enregistrez vos opérations et vos charges récurrentes (loyer, abonnements, salaire). Grigou calcule votre solde, classe vos dépenses par catégorie et prévoit votre solde des semaines et des mois à venir.',
+    },
+    {
+        q: 'Peut-on gérer un budget à deux ou en famille ?',
+        a: 'Oui. Chaque portefeuille peut être partagé avec un proche, en lecture seule, en édition ou en administration. C’est pratique pour un budget de couple, un compte commun ou un budget vacances.',
+    },
+    {
+        q: 'Où sont stockées mes données ?',
+        a: 'Vos données sont hébergées en France. Grigou n’utilise ni traceur publicitaire ni outil de pistage.',
+    },
+];
+
+const jsonLd = [
+    {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Grigou',
+        applicationCategory: 'FinanceApplication',
+        operatingSystem: 'Web',
+        inLanguage: 'fr-FR',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+        description: 'Application de gestion de budget personnel gratuite : suivi des dépenses, transactions récurrentes, prévision de solde et budgets partagés.',
+        url: 'https://grigou.fr/',
+        image: 'https://grigou.fr/og-image.png',
+    },
+    {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Grigou',
+        url: 'https://grigou.fr/',
+        inLanguage: 'fr-FR',
+    },
+    {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: FAQ.map(({ q, a }) => ({
+            '@type': 'Question',
+            name: q,
+            acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
+    },
+];
 
 export default function LandingClient() {
     return (
@@ -75,6 +118,7 @@ export default function LandingClient() {
                         <a href="#fonctionnalites" className="hover:text-fg">Fonctionnalités</a>
                         <a href="#apercu" className="hover:text-fg">Aperçu</a>
                         <a href="#confidentialite" className="hover:text-fg">Confidentialité</a>
+                        <a href="#faq" className="hover:text-fg">FAQ</a>
                     </nav>
                     <div className="ml-auto flex items-center gap-1.5">
                         <ThemeIconButton />
@@ -96,8 +140,8 @@ export default function LandingClient() {
                             Votre budget, clair aujourd’hui et prévisible demain.
                         </h1>
                         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-fg-muted">
-                            Grigou suit vos dépenses, prévoit votre solde des mois à venir et se partage avec vos proches,
-                            sans jamais vous demander l’accès à votre banque.
+                            Grigou est une application de gestion de budget gratuite : elle suit vos dépenses, prévoit votre
+                            solde des mois à venir et se partage avec vos proches, sans jamais vous demander l’accès à votre banque.
                         </p>
                         <div className="mt-8 flex flex-wrap items-center gap-3">
                             <Link href="/register" className="btn-primary !px-5 !py-2.5 text-[15px]">
@@ -189,6 +233,23 @@ export default function LandingClient() {
                     </div>
                 </section>
 
+                {/* FAQ */}
+                <section id="faq" className="scroll-mt-20 mx-auto max-w-3xl px-4 pb-20 md:px-6">
+                    <p className="eyebrow mb-3">Questions fréquentes</p>
+                    <h2 className="text-3xl font-semibold">Gérer son budget avec Grigou</h2>
+                    <div className="mt-8 divide-y divide-line border-y border-line">
+                        {FAQ.map(({ q, a }) => (
+                            <details key={q} className="group py-5">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">
+                                    <h3>{q}</h3>
+                                    <span className="text-fg-subtle transition-transform group-open:rotate-45" aria-hidden>+</span>
+                                </summary>
+                                <p className="mt-3 text-sm leading-relaxed text-fg-muted">{a}</p>
+                            </details>
+                        ))}
+                    </div>
+                </section>
+
                 {/* Final CTA */}
                 <section className="border-t border-line">
                     <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-4 py-16 md:flex-row md:items-center md:px-6">
@@ -210,7 +271,7 @@ export default function LandingClient() {
             <footer className="border-t border-line">
                 <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-fg-subtle sm:flex-row sm:items-center sm:justify-between md:px-6">
                     <Logo href="/" size={22} />
-                    <p>Gestionnaire de budget personnel, hébergé en France.</p>
+                    <p>Application de gestion de budget personnel gratuite, hébergée en France.</p>
                 </div>
             </footer>
         </div>

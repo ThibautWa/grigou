@@ -1,6 +1,11 @@
+import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import LandingClient from '@/components/landing/LandingClient';
+
+export const metadata: Metadata = {
+    alternates: { canonical: '/' },
+};
 
 export default async function LandingPage() {
     const session = await auth();
