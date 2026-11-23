@@ -10,7 +10,7 @@ import {
     AreaChart, Area,
     PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    ResponsiveContainer, ReferenceLine, ReferenceArea,
+    ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList,
 } from 'recharts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,10 +55,19 @@ interface WeeklyData {
     is_future: boolean;
 }
 
+interface MonthVsAverageRow {
+    category: string;
+    color: string;
+    current: number;   // spent this month, to date
+    planned: number;   // recurring expenses still to come this month
+    average: number;   // monthly average over the previous months
+}
+
 interface AnalyticsData {
     monthly: MonthlyData[];
     weekly: WeeklyData[];
     categoryBreakdown: { outcome: CategoryData[]; income: CategoryData[] };
+    monthVsAverage?: { pastMonths: number; categories: MonthVsAverageRow[] };
     summary: Summary;
 }
 
@@ -259,6 +268,37 @@ const CategoryTooltip = ({ active, payload, others }: any) => {
     );
 };
 
+/** Tooltip for "Ce mois-ci vs moyenne": spent, still planned, average and gap. */
+const MonthVsAverageTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const r = payload[0].payload as MonthVsAverageRow;
+    const projected = r.current + r.planned;
+    const diff = projected - r.average;
+    return (
+        <div style={{
+            background: GD.card,
+            border: `1px solid ${GD.border}`,
+            borderRadius: 10,
+            padding: '0.75rem 1rem',
+            boxShadow: 'var(--shadow-pop)',
+            fontSize: '0.8125rem',
+            minWidth: 200,
+        }}>
+            <p style={{ color: GD.text, fontWeight: 600, marginBottom: 6 }}>{r.category}</p>
+            <p style={{ color: GD.text2, margin: '2px 0' }}>Dépensé ce mois : <b style={{ color: GD.text }}>{fmtFull(r.current)}</b></p>
+            {r.planned > 0 && (
+                <p style={{ color: GD.text2, margin: '2px 0' }}>Encore prévu : <b style={{ color: GD.text }}>{fmtFull(r.planned)}</b></p>
+            )}
+            <p style={{ color: GD.text2, margin: '2px 0' }}>Moyenne mensuelle : <b style={{ color: GD.text }}>{fmtFull(r.average)}</b></p>
+            {r.average > 0 && (
+                <p style={{ color: diff > 0 ? EXPENSE_C : INCOME_C, margin: '6px 0 0', fontWeight: 600 }}>
+                    {diff > 0 ? '+' : '−'}{fmtFull(Math.abs(diff))} par rapport à la moyenne
+                </p>
+            )}
+        </div>
+    );
+};
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
@@ -324,6 +364,19 @@ export default function AnalyticsPage() {
         });
         return { slices: kept, others };
     }, [catData, OTHERS_COLOR]);
+    // ── This month vs average: biggest categories first, adjustments left out ──
+    const mva = useMemo(() => {
+        const src = data?.monthVsAverage;
+        if (!src) return null;
+        const rows = src.categories
+            .filter((c) => c.category !== ADJUSTMENT_CATEGORY)
+            .filter((c) => c.current + c.planned > 0 || c.average >= 1)
+            .sort((a, b) => Math.max(b.current + b.planned, b.average) - Math.max(a.current + a.planned, a.average));
+        const top = rows.slice(0, 8);
+        const sum = (k: 'current' | 'planned' | 'average') => rows.reduce((t, c) => t + c[k], 0);
+        return { pastMonths: src.pastMonths, rows: top, hidden: rows.length - top.length, current: sum('current'), planned: sum('planned'), average: sum('average') };
+    }, [data]);
+
     const catColor = (cat: CategoryData, i: number) => cat.color || PIE_COLORS[i % PIE_COLORS.length];
     const fmtPct = (cat: CategoryData) => (cat.percentage < 1 && Number(cat.total) > 0 ? '<1%' : `${cat.percentage}%`);
 
@@ -834,6 +887,61 @@ export default function AnalyticsPage() {
                             )}
                         </ChartCard>
 
+
+                        {/* ── Ce mois-ci vs moyenne ── */}
+                        {mva && mva.rows.length > 0 && (
+                            <ChartCard
+                                title="Ce mois-ci par rapport à votre moyenne"
+                                subtitle={mva.pastMonths > 0
+                                    ? `Dépenses du mois en cours (à ce jour + récurrences encore prévues) comparées à la moyenne des ${mva.pastMonths} mois précédents`
+                                    : 'Pas encore de mois précédent pour calculer une moyenne'}
+                            >
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem 1.5rem', fontSize: '0.8125rem', color: GD.text2, marginBottom: '0.75rem' }}>
+                                    <span>
+                                        Ce mois-ci : <b style={{ color: GD.text }}>{fmt(mva.current)}</b>
+                                        {mva.planned > 0 && <> + {fmt(mva.planned)} prévus</>}
+                                    </span>
+                                    {mva.pastMonths > 0 && (
+                                        <span>Moyenne : <b style={{ color: GD.text }}>{fmt(mva.average)}</b> / mois</span>
+                                    )}
+                                    {mva.hidden > 0 && <span style={{ color: GD.muted }}>{mva.hidden} petite(s) catégorie(s) non affichée(s)</span>}
+                                </div>
+                                <ResponsiveContainer width="100%" height={Math.max(220, mva.rows.length * 52)}>
+                                    <BarChart data={mva.rows} layout="vertical" margin={{ left: 8, right: 56 }} barGap={2} barCategoryGap="22%">
+                                        <CartesianGrid horizontal={false} stroke={GD.border} />
+                                        <XAxis type="number" tick={axisStyle} tickFormatter={fmt} />
+                                        <YAxis type="category" dataKey="category" tick={{ ...axisStyle, fill: GD.text2, fontSize: 12 }} width={120} />
+                                        <Tooltip content={<MonthVsAverageTooltip />} cursor={{ fill: C['fg-subtle'], fillOpacity: 0.08 }} />
+                                        <Legend wrapperStyle={{ fontSize: 12, color: GD.text2 }} />
+                                        <Bar dataKey="current" stackId="month" name="Ce mois-ci" fill={ACCENT} />
+                                        <Bar dataKey="planned" stackId="month" name="Encore prévu" fill={`color-mix(in srgb, ${ACCENT} 35%, transparent)`} radius={[0, 4, 4, 0]}>
+                                            <LabelList
+                                                content={(props: any) => {
+                                                    const r = mva.rows[props.index];
+                                                    if (!r || r.average <= 0) return null;
+                                                    const pct = Math.round(((r.current + r.planned) / r.average - 1) * 100);
+                                                    return (
+                                                        <text
+                                                            x={props.x + props.width + 6}
+                                                            y={props.y + props.height / 2}
+                                                            dominantBaseline="middle"
+                                                            fontSize={11}
+                                                            fontWeight={600}
+                                                            fill={pct > 5 ? EXPENSE_C : pct < -5 ? INCOME_C : C['fg-subtle']}
+                                                        >
+                                                            {pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct)} %
+                                                        </text>
+                                                    );
+                                                }}
+                                            />
+                                        </Bar>
+                                        {mva.pastMonths > 0 && (
+                                            <Bar dataKey="average" name="Moyenne mensuelle" fill={`color-mix(in srgb, ${C['fg-subtle']} 55%, transparent)`} radius={[0, 4, 4, 0]} />
+                                        )}
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </ChartCard>
+                        )}
                     </>
                 )}
             </main>

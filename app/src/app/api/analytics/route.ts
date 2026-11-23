@@ -241,13 +241,15 @@ export async function GET(request: NextRequest) {
 
         // ── 4. Recurring transactions → future predictions ────────────────────────
         const recurResult = await pool.query<RecurringTx>(
-            `SELECT id, type, amount, description, category, date::text,
-              recurrence_type, recurrence_end_date::text
-       FROM transactions
-       WHERE wallet_id = $1
-         AND is_recurring = TRUE
-         AND date <= $2
-         AND (recurrence_end_date IS NULL OR recurrence_end_date >= $3)`,
+            `SELECT t.id, t.type, t.amount, t.description,
+              COALESCE(c.name, t.category, 'Sans catégorie') AS category,
+              t.date::text, t.recurrence_type, t.recurrence_end_date::text
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.wallet_id = $1
+         AND t.is_recurring = TRUE
+         AND t.date <= $2
+         AND (t.recurrence_end_date IS NULL OR t.recurrence_end_date >= $3)`,
             [parseInt(walletId), format(forecastEnd, 'yyyy-MM-dd'), format(historyStart, 'yyyy-MM-dd')],
         );
 
@@ -340,6 +342,57 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // ── 7b. This month vs monthly average, per expense category ─────────────
+        // Average over the previous months of the period that have any spending
+        // (a wallet younger than the period is not diluted by empty months).
+        const currentMonthStart = format(startOfMonth(now), 'yyyy-MM-dd');
+        const catMonthResult = await pool.query(
+            `SELECT
+         COALESCE(c.name, t.category, 'Sans catégorie') AS category,
+         COALESCE(c.color, '#94a3b8')                   AS color,
+         to_char(t.date, 'YYYY-MM')                      AS month,
+         SUM(t.amount)::float                           AS total
+       FROM transactions t
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.wallet_id = $1
+         AND t.type = 'outcome'
+         AND t.date >= $2
+         AND t.date <= $3
+       GROUP BY 1, 2, 3`,
+            [parseInt(walletId), format(historyStart, 'yyyy-MM-dd'), format(now, 'yyyy-MM-dd')],
+        );
+        const curKey = format(now, 'yyyy-MM');
+        const pastMonths = new Set<string>();
+        const byCat = new Map<string, { category: string; color: string; current: number; pastTotal: number; planned: number }>();
+        const catEntry = (category: string, color = '#94a3b8') => {
+            let e = byCat.get(category);
+            if (!e) { e = { category, color, current: 0, pastTotal: 0, planned: 0 }; byCat.set(category, e); }
+            return e;
+        };
+        for (const row of catMonthResult.rows) {
+            if (row.category === 'Ajustement') continue; // balance corrections, not spending
+            const e = catEntry(row.category, row.color);
+            if (row.month === curKey) e.current += row.total;
+            else { e.pastTotal += row.total; pastMonths.add(row.month); }
+        }
+        // Recurring expenses still to come this month (predictions start tomorrow)
+        const currentMonthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
+        for (const pred of allPredictions) {
+            if (pred.type !== 'outcome' || pred.date > currentMonthEnd || pred.date < currentMonthStart) continue;
+            catEntry(pred.category ?? 'Sans catégorie').planned += pred.amount;
+        }
+        const pastCount = pastMonths.size;
+        const monthVsAverage = {
+            pastMonths: pastCount,
+            categories: Array.from(byCat.values()).map(e => ({
+                category: e.category,
+                color: e.color,
+                current: e.current,
+                planned: e.planned,
+                average: pastCount > 0 ? e.pastTotal / pastCount : 0,
+            })),
+        };
+
         // ── 8. Summary KPIs ───────────────────────────────────────────────────────
         const currentMonthKey = format(now, 'yyyy-MM');
         const prevMonthKey = format(subMonths(now, 1), 'yyyy-MM');
@@ -354,6 +407,7 @@ export async function GET(request: NextRequest) {
             monthly,
             weekly,
             categoryBreakdown,
+            monthVsAverage,
             summary: {
                 currentBalance,
                 currentMonth: {
